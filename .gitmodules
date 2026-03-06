@@ -1,0 +1,3 @@
+[submodule "vendor/moto"]
+	path = vendor/moto
+	url = https://github.com/getmoto/moto.git
