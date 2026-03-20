@@ -1232,7 +1232,7 @@ class TestElastiCacheGapOps:
         try:
             client.delete_cache_cluster(CacheClusterId=cluster_id)
         except ClientError:
-            pass
+            pass  # best-effort cleanup
 
     def test_describe_engine_default_parameters(self, client):
         """DescribeEngineDefaultParameters returns EngineDefaults."""

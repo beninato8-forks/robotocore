@@ -182,7 +182,7 @@ class TestMediaPackageTagOps:
         try:
             client.delete_channel(Id=channel_id)
         except Exception:
-            pass
+            pass  # best-effort cleanup
 
     def test_list_tags_for_resource(self, client, channel):
         """ListTagsForResource returns channel tags."""

@@ -3578,7 +3578,7 @@ class TestIoTRemainingGapOps:
             try:
                 iot.delete_certificate_provider(certificateProviderName=name)
             except Exception:  # noqa: BLE001
-                pass
+                pass  # best-effort cleanup
 
     def test_start_detect_mitigation_actions_task(self, iot):
         """StartDetectMitigationActionsTask creates a task and returns its ID."""

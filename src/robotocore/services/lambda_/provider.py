@@ -999,7 +999,7 @@ def _handle_code_signing_configs(
 
 
 # In-memory store for capacity providers (stub implementation)
-_capacity_providers: dict[str, dict] = {}
+_capacity_providers: dict[tuple[str, str, str], dict] = {}
 _capacity_providers_lock = __import__("threading").Lock()
 
 
@@ -1082,7 +1082,10 @@ def _handle_capacity_providers(
     if len(parts) == 3 and parts[2] == "function-versions":
         # GET /capacity-providers/{name}/function-versions → ListFunctionVersionsByCapacityProvider
         if method == "GET":
-            return _json(200, {"FunctionVersions": [], "NextMarker": None})
+            cp_arn = f"arn:aws:lambda:{region}:{account_id}:capacity-provider:{cp_name}"
+            return _json(
+                200, {"CapacityProviderArn": cp_arn, "FunctionVersions": [], "NextMarker": None}
+            )
         return _error("InvalidRequest", "Method not allowed", 405)
 
     return _error("InvalidRequest", "Unknown capacity-providers path", 400)

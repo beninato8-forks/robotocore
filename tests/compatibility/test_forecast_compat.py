@@ -168,7 +168,7 @@ class TestForecastCRUDOps:
         try:
             client.delete_dataset(DatasetArn=r["DatasetArn"])
         except ClientError:
-            pass
+            pass  # best-effort cleanup
 
     @pytest.fixture
     def dataset_group_arn(self, client):
@@ -177,7 +177,7 @@ class TestForecastCRUDOps:
         try:
             client.delete_dataset_group(DatasetGroupArn=r["DatasetGroupArn"])
         except ClientError:
-            pass
+            pass  # best-effort cleanup
 
     def test_create_describe_delete_dataset(self, client):
         r = client.create_dataset(

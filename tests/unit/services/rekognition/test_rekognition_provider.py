@@ -993,6 +993,13 @@ class TestActionMapCompleteness:
             "CreateFaceLivenessSession",
             "GetFaceLivenessSessionResults",
             "ListUsers",
+            "CreateUser",
+            "DeleteUser",
+            "SearchUsers",
+            "SearchUsersByImage",
+            "AssociateFaces",
+            "DisassociateFaces",
+            "UpdateStreamProcessor",
         }
         assert set(rekog._ACTION_MAP.keys()) == expected
 

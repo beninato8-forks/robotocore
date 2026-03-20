@@ -1325,7 +1325,7 @@ class TestELBV2GapOpsV2:
         try:
             client.delete_trust_store(TrustStoreArn=arn)
         except Exception:
-            pass
+            pass  # best-effort cleanup
 
     def test_add_trust_store_revocations(self, client, trust_store):
         """AddTrustStoreRevocations succeeds with empty list."""

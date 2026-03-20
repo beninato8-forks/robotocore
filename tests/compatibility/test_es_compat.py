@@ -591,7 +591,7 @@ class TestESGapOps:
         try:
             client.delete_elasticsearch_domain(DomainName=name)
         except Exception:
-            pass
+            pass  # best-effort cleanup
 
     def test_get_upgrade_history(self, client, domain):
         """GetUpgradeHistory returns history list."""

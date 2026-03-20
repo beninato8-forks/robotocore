@@ -1150,41 +1150,33 @@ class TestRoute53ResolverFirewallConfigGapOps:
 
 
 class TestRoute53ResolverOutpostResolverOps:
-    """Tests for Outpost Resolver operations (return 501 NotImplemented)."""
+    """Tests for Outpost Resolver CRUD operations."""
 
     @pytest.fixture
     def client(self):
         return make_client("route53resolver")
 
-    def test_create_outpost_resolver_not_implemented(self, client):
-        from botocore.exceptions import ClientError
+    def test_create_outpost_resolver(self, client):
+        resp = client.create_outpost_resolver(
+            CreatorRequestId="req-1",
+            Name="test-outpost-resolver",
+            OutpostArn="arn:aws:outposts:us-east-1:123456789012:outpost/op-1234567890abcdef0",
+            PreferredInstanceType="m5.large",
+        )
+        assert "OutpostResolver" in resp
+        resolver = resp["OutpostResolver"]
+        assert resolver["Name"] == "test-outpost-resolver"
+        assert "Id" in resolver
+        assert "Arn" in resolver
 
-        with pytest.raises(ClientError) as exc:
-            client.create_outpost_resolver(
-                CreatorRequestId="req-1",
-                Name="test-outpost-resolver",
-                OutpostArn="arn:aws:outposts:us-east-1:123456789012:outpost/op-1234567890abcdef0",
-                PreferredInstanceType="m5.large",
-            )
-        assert exc.value.response["Error"]["Code"] in ("NotImplemented", "UnsupportedOperation")
+    def test_get_outpost_resolver(self, client):
+        resp = client.get_outpost_resolver(Id="rslvr-out-abc123")
+        assert "OutpostResolver" in resp
 
-    def test_get_outpost_resolver_not_implemented(self, client):
-        from botocore.exceptions import ClientError
+    def test_delete_outpost_resolver(self, client):
+        resp = client.delete_outpost_resolver(Id="rslvr-out-abc123")
+        assert "OutpostResolver" in resp
 
-        with pytest.raises(ClientError) as exc:
-            client.get_outpost_resolver(Id="rslvr-out-abc123")
-        assert exc.value.response["Error"]["Code"] in ("NotImplemented", "UnsupportedOperation")
-
-    def test_delete_outpost_resolver_not_implemented(self, client):
-        from botocore.exceptions import ClientError
-
-        with pytest.raises(ClientError) as exc:
-            client.delete_outpost_resolver(Id="rslvr-out-abc123")
-        assert exc.value.response["Error"]["Code"] in ("NotImplemented", "UnsupportedOperation")
-
-    def test_update_outpost_resolver_not_implemented(self, client):
-        from botocore.exceptions import ClientError
-
-        with pytest.raises(ClientError) as exc:
-            client.update_outpost_resolver(Id="rslvr-out-abc123")
-        assert exc.value.response["Error"]["Code"] in ("NotImplemented", "UnsupportedOperation")
+    def test_update_outpost_resolver(self, client):
+        resp = client.update_outpost_resolver(Id="rslvr-out-abc123")
+        assert "OutpostResolver" in resp

@@ -183,7 +183,7 @@ class TestPersonalizeCRUDOps:
         try:
             client.delete_dataset_group(datasetGroupArn=r["datasetGroupArn"])
         except ClientError:
-            pass
+            pass  # best-effort cleanup
 
     # --- DatasetGroup ---
 

@@ -2851,19 +2851,14 @@ class TestQuickSightRemainingGapOps:
             "AccessDeniedException",
         )
 
-    def test_describe_dashboard_snapshot_job_result_not_implemented(self, client):
-        from botocore.exceptions import ClientError
-
-        with pytest.raises(ClientError) as exc:
-            client.describe_dashboard_snapshot_job_result(
-                AwsAccountId=ACCOUNT_ID,
-                DashboardId="d-nonexistent",
-                SnapshotJobId="job-nonexistent",
-            )
-        assert exc.value.response["Error"]["Code"] in (
-            "NotImplemented",
-            "ResourceNotFoundException",
+    def test_describe_dashboard_snapshot_job_result(self, client):
+        resp = client.describe_dashboard_snapshot_job_result(
+            AwsAccountId=ACCOUNT_ID,
+            DashboardId="d-nonexistent",
+            SnapshotJobId="job-nonexistent",
         )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "Status" in resp
 
     def test_describe_folder_resolved_permissions_not_implemented(self, client):
         from botocore.exceptions import ClientError

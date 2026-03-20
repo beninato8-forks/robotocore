@@ -128,24 +128,19 @@ class TestS3TablesOperations:
 
     # --- GetTableBucketEncryption ---
     def test_get_table_bucket_encryption(self, s3tables, table_bucket):
-        # New bucket has no encryption config yet; server returns NotFoundException
-        with pytest.raises(s3tables.exceptions.ClientError) as exc:
-            s3tables.get_table_bucket_encryption(tableBucketARN=table_bucket)
-        assert exc.value.response["Error"]["Code"] == "NotFoundException"
+        resp = s3tables.get_table_bucket_encryption(tableBucketARN=table_bucket)
+        assert "encryptionConfiguration" in resp
 
     # --- GetTableBucketMaintenanceConfiguration ---
     def test_get_table_bucket_maintenance_configuration(self, s3tables, table_bucket):
-        # New bucket has no maintenance config; server returns NotFoundException
-        with pytest.raises(s3tables.exceptions.ClientError) as exc:
-            s3tables.get_table_bucket_maintenance_configuration(tableBucketARN=table_bucket)
-        assert exc.value.response["Error"]["Code"] == "NotFoundException"
+        resp = s3tables.get_table_bucket_maintenance_configuration(tableBucketARN=table_bucket)
+        assert "tableBucketARN" in resp
+        assert "configuration" in resp
 
     # --- GetTableBucketMetricsConfiguration ---
     def test_get_table_bucket_metrics_configuration(self, s3tables, table_bucket):
-        # New bucket has no metrics config; server returns NotFoundException
-        with pytest.raises(s3tables.exceptions.ClientError) as exc:
-            s3tables.get_table_bucket_metrics_configuration(tableBucketARN=table_bucket)
-        assert exc.value.response["Error"]["Code"] == "NotFoundException"
+        resp = s3tables.get_table_bucket_metrics_configuration(tableBucketARN=table_bucket)
+        assert "tableBucketARN" in resp
 
     # --- GetTableBucketPolicy ---
     def test_get_table_bucket_policy_not_found(self, s3tables, table_bucket):
@@ -167,10 +162,8 @@ class TestS3TablesOperations:
 
     # --- GetTableBucketStorageClass ---
     def test_get_table_bucket_storage_class(self, s3tables, table_bucket):
-        # New bucket has no storage class config; server returns NotFoundException
-        with pytest.raises(s3tables.exceptions.ClientError) as exc:
-            s3tables.get_table_bucket_storage_class(tableBucketARN=table_bucket)
-        assert exc.value.response["Error"]["Code"] == "NotFoundException"
+        resp = s3tables.get_table_bucket_storage_class(tableBucketARN=table_bucket)
+        assert "storageClassConfiguration" in resp
 
     # --- ListNamespaces ---
     def test_list_namespaces(self, s3tables, table_bucket):

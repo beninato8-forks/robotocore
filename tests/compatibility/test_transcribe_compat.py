@@ -1062,7 +1062,7 @@ class TestTranscribeRemainingGapOps:
         try:
             client.delete_medical_scribe_job(MedicalScribeJobName=name)
         except Exception:  # noqa: BLE001
-            pass
+            pass  # best-effort cleanup
 
     def test_update_call_analytics_category_not_found(self, client):
         """UpdateCallAnalyticsCategory raises BadRequestException for nonexistent category."""

@@ -395,7 +395,7 @@ class TestS3VectorsTagOperations:
         try:
             s3vectors.delete_vector_bucket(vectorBucketName=name)
         except Exception:
-            pass
+            pass  # best-effort cleanup
 
     def test_tag_resource(self, s3vectors, tagged_bucket):
         _, arn = tagged_bucket
@@ -447,7 +447,7 @@ class TestS3VectorsQueryVectors:
             s3vectors.delete_index(vectorBucketName=name, indexName="qidx")
             s3vectors.delete_vector_bucket(vectorBucketName=name)
         except Exception:
-            pass
+            pass  # best-effort cleanup
 
     def test_query_vectors(self, s3vectors, bucket_with_index):
         resp = s3vectors.query_vectors(

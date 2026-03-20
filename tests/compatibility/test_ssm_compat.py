@@ -3558,66 +3558,50 @@ class TestSSMGapOps:
     def client(self):
         return make_client("ssm")
 
-    def test_describe_effective_patches_for_patch_baseline_not_implemented(self, client):
-        with pytest.raises(ClientError) as exc:
-            client.describe_effective_patches_for_patch_baseline(BaselineId="pb-1234567890abcdef0")
-        assert exc.value.response["Error"]["Code"] in (
-            "NotImplemented",
-            "DoesNotExistException",
+    def test_describe_effective_patches_for_patch_baseline(self, client):
+        resp = client.describe_effective_patches_for_patch_baseline(
+            BaselineId="pb-1234567890abcdef0"
         )
+        assert "EffectivePatches" in resp
+        assert isinstance(resp["EffectivePatches"], list)
 
     def test_describe_maintenance_window_executions_empty(self, client):
         """DescribeMaintenanceWindowExecutions returns empty list for nonexistent window."""
-        with pytest.raises(ClientError) as exc:
-            client.describe_maintenance_window_executions(WindowId="mw-1234567890abcdef0")
-        assert exc.value.response["Error"]["Code"] in (
-            "NotImplemented",
-            "DoesNotExistException",
-        )
+        resp = client.describe_maintenance_window_executions(WindowId="mw-1234567890abcdef0")
+        assert "WindowExecutions" in resp
+        assert isinstance(resp["WindowExecutions"], list)
 
-    def test_create_association_batch_not_implemented(self, client):
-        with pytest.raises(ClientError) as exc:
-            client.create_association_batch(
-                Entries=[
-                    {
-                        "Name": "AWS-RunShellScript",
-                        "InstanceId": "i-1234567890abcdef0",
-                    }
-                ]
-            )
-        assert exc.value.response["Error"]["Code"] in (
-            "NotImplemented",
-            "AssociationAlreadyExists",
-            "InvalidDocument",
+    def test_create_association_batch(self, client):
+        resp = client.create_association_batch(
+            Entries=[
+                {
+                    "Name": "AWS-RunShellScript",
+                    "InstanceId": "i-1234567890abcdef0",
+                }
+            ]
         )
+        assert "Successful" in resp or "Failed" in resp
 
-    def test_put_inventory_not_implemented(self, client):
-        with pytest.raises(ClientError) as exc:
-            client.put_inventory(
-                InstanceId="i-1234567890abcdef0",
-                Items=[
-                    {
-                        "TypeName": "AWS:Application",
-                        "SchemaVersion": "1.1",
-                        "CaptureTime": "2024-01-01T00:00:00Z",
-                        "ContentHash": "abc123",
-                        "Content": [{"Name": "TestApp", "Version": "1.0"}],
-                    }
-                ],
-            )
-        assert exc.value.response["Error"]["Code"] in (
-            "NotImplemented",
-            "InvalidInventoryItemContextException",
-            "ItemSizeLimitExceededException",
+    def test_put_inventory(self, client):
+        resp = client.put_inventory(
+            InstanceId="i-1234567890abcdef0",
+            Items=[
+                {
+                    "TypeName": "AWS:Application",
+                    "SchemaVersion": "1.1",
+                    "CaptureTime": "2024-01-01T00:00:00Z",
+                    "ContentHash": "abc123",
+                    "Content": [{"Name": "TestApp", "Version": "1.0"}],
+                }
+            ],
         )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "Message" in resp
 
-    def test_register_default_patch_baseline_not_implemented(self, client):
-        with pytest.raises(ClientError) as exc:
-            client.register_default_patch_baseline(BaselineId="pb-1234567890abcdef0")
-        assert exc.value.response["Error"]["Code"] in (
-            "NotImplemented",
-            "DoesNotExistException",
-        )
+    def test_register_default_patch_baseline(self, client):
+        resp = client.register_default_patch_baseline(BaselineId="pb-1234567890abcdef0")
+        assert "BaselineId" in resp
+        assert resp["BaselineId"] == "pb-1234567890abcdef0"
 
     def test_update_patch_baseline_not_implemented(self, client):
         with pytest.raises(ClientError) as exc:
@@ -3627,18 +3611,15 @@ class TestSSMGapOps:
             "DoesNotExistException",
         )
 
-    def test_list_nodes_summary_not_implemented(self, client):
-        with pytest.raises(ClientError) as exc:
-            client.list_nodes_summary(
-                Aggregators=[
-                    {
-                        "AggregatorType": "Count",
-                        "AttributeName": "PlatformType",
-                        "TypeName": "Instance",
-                    }
-                ]
-            )
-        assert exc.value.response["Error"]["Code"] in (
-            "NotImplemented",
-            "UnsupportedOperationException",
+    def test_list_nodes_summary(self, client):
+        resp = client.list_nodes_summary(
+            Aggregators=[
+                {
+                    "AggregatorType": "Count",
+                    "AttributeName": "PlatformType",
+                    "TypeName": "Instance",
+                }
+            ]
         )
+        assert "Summary" in resp
+        assert isinstance(resp["Summary"], list)

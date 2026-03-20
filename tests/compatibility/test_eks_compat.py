@@ -1761,7 +1761,7 @@ class TestEKSMissingGapOps:
         try:
             client.delete_cluster(name=name)
         except Exception:
-            pass
+            pass  # best-effort cleanup
 
     def test_list_updates(self, client, cluster):
         """ListUpdates returns a list of update IDs."""

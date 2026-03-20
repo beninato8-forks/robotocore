@@ -5102,7 +5102,7 @@ class TestRDSGapOps:
             try:
                 client.delete_db_cluster(DBClusterIdentifier=cluster_id, SkipFinalSnapshot=True)
             except Exception:  # noqa: BLE001
-                pass
+                pass  # best-effort cleanup
 
     def test_restore_db_instance_from_s3(self, client):
         """RestoreDBInstanceFromS3 creates a DB instance from S3 backup data."""
@@ -5130,4 +5130,4 @@ class TestRDSGapOps:
                     DeleteAutomatedBackups=True,
                 )
             except Exception:  # noqa: BLE001
-                pass
+                pass  # best-effort cleanup
