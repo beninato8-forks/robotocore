@@ -756,3 +756,40 @@ class TestFSxDescribeFiltered:
         assert len(desc["Volumes"]) == 1
         assert desc["Volumes"][0]["VolumeId"] == vol_id
         assert desc["Volumes"][0]["Name"] == "filtered-vol"
+
+
+class TestFSxMissingGapOps:
+    """Tests for FSx operations identified as coverage gaps."""
+
+    def test_update_shared_vpc_configuration(self, fsx):
+        """UpdateSharedVpcConfiguration sets EnableFsxRouteTableUpdatesFromParticipantAccounts."""
+        resp = fsx.update_shared_vpc_configuration(
+            EnableFsxRouteTableUpdatesFromParticipantAccounts="true"
+        )
+        assert "EnableFsxRouteTableUpdatesFromParticipantAccounts" in resp
+
+    def test_release_file_system_nfs_v3_locks(self, fsx):
+        """ReleaseFileSystemNfsV3Locks returns FileSystem for a fake ID."""
+        fake_fs_id = "fs-" + uuid.uuid4().hex[:8]
+        resp = fsx.release_file_system_nfs_v3_locks(FileSystemId=fake_fs_id)
+        assert "FileSystem" in resp
+
+    def test_update_volume_not_found(self, fsx):
+        """UpdateVolume with fake VolumeId raises VolumeNotFound."""
+        fake_vol_id = "fsvol-" + uuid.uuid4().hex[:17]
+        with pytest.raises(ClientError) as exc:
+            fsx.update_volume(VolumeId=fake_vol_id)
+        err = exc.value.response["Error"]["Code"]
+        assert err in ("VolumeNotFound", "ResourceNotFoundException", "BadRequest")
+
+    def test_update_storage_virtual_machine_not_found(self, fsx):
+        """UpdateStorageVirtualMachine with fake ID raises StorageVirtualMachineNotFound."""
+        fake_svm_id = "svm-" + uuid.uuid4().hex[:17]
+        with pytest.raises(ClientError) as exc:
+            fsx.update_storage_virtual_machine(StorageVirtualMachineId=fake_svm_id)
+        err = exc.value.response["Error"]["Code"]
+        assert err in (
+            "StorageVirtualMachineNotFound",
+            "ResourceNotFoundException",
+            "BadRequest",
+        )

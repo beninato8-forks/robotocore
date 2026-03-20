@@ -227,3 +227,24 @@ class TestOSISPutResourcePolicy:
         )
         del_resp = osis.delete_resource_policy(ResourceArn=pipeline["PipelineArn"])
         assert del_resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestOSISMissingGapOps:
+    """Tests for OSIS operations identified as coverage gaps."""
+
+    def test_list_pipeline_blueprints(self, osis):
+        resp = osis.list_pipeline_blueprints()
+        assert "Blueprints" in resp
+        assert isinstance(resp["Blueprints"], list)
+
+    def test_get_pipeline_blueprint(self, osis):
+        resp = osis.get_pipeline_blueprint(BlueprintName="AWS-KinesisToS3")
+        assert "Blueprint" in resp
+
+    def test_validate_pipeline(self, osis):
+        resp = osis.validate_pipeline(PipelineConfigurationBody="version: 2023-01-01")
+        assert "isValid" in resp
+
+    def test_get_pipeline_change_progress(self, osis):
+        resp = osis.get_pipeline_change_progress(PipelineName="fake-pipeline")
+        assert "ChangeProgressStatuses" in resp

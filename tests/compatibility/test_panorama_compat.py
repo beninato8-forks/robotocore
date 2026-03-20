@@ -336,3 +336,30 @@ class TestPanoramaAdditionalOps:
         assert "JobId" in resp
         assert isinstance(resp["JobId"], str)
         assert len(resp["JobId"]) > 0
+
+
+class TestPanoramaMissingGapOps:
+    """Tests for Panorama operations identified as coverage gaps."""
+
+    def test_list_tags_for_resource(self, panorama):
+        resp = panorama.list_tags_for_resource(
+            ResourceArn="arn:aws:panorama:us-east-1:123456789012:device/fake"
+        )
+        assert "Tags" in resp
+
+    def test_tag_resource(self, panorama):
+        resp = panorama.tag_resource(
+            ResourceArn="arn:aws:panorama:us-east-1:123456789012:device/fake",
+            Tags={"env": "test"},
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_list_devices_jobs(self, panorama):
+        device_id = "device-" + uuid.uuid4().hex[:8]
+        resp = panorama.list_devices_jobs(DeviceId=device_id)
+        assert "DeviceJobs" in resp
+
+    def test_list_application_instance_dependencies(self, panorama):
+        app_instance_id = "ai-" + uuid.uuid4().hex[:8]
+        with pytest.raises(ClientError):
+            panorama.list_application_instance_dependencies(ApplicationInstanceId=app_instance_id)

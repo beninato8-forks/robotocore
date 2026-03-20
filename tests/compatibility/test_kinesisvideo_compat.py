@@ -364,3 +364,47 @@ class TestKinesisVideoNewOps:
         finally:
             arn = kinesisvideo_client.describe_stream(StreamName=name)["StreamInfo"]["StreamARN"]
             kinesisvideo_client.delete_stream(StreamARN=arn)
+
+
+class TestKinesisVideoMissingGapOps:
+    """Tests for KinesisVideo operations identified as coverage gaps."""
+
+    def test_update_image_generation_configuration(self, kinesisvideo_client):
+        name = f"test-kv-{uuid.uuid4().hex[:8]}"
+        resp = kinesisvideo_client.create_stream(StreamName=name, DataRetentionInHours=24)
+        arn = resp["StreamARN"]
+        try:
+            upd_resp = kinesisvideo_client.update_image_generation_configuration(
+                StreamName=name,
+                ImageGenerationConfiguration={
+                    "Status": "DISABLED",
+                    "ImageSelectorType": "SERVER_TIMESTAMP",
+                    "DestinationConfig": {
+                        "Uri": "s3://test-bucket/images",
+                        "DestinationRegion": "us-east-1",
+                    },
+                    "SamplingInterval": 3000,
+                    "Format": "JPEG",
+                },
+            )
+            assert upd_resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        finally:
+            kinesisvideo_client.delete_stream(StreamARN=arn)
+
+    def test_update_notification_configuration(self, kinesisvideo_client):
+        name = f"test-kv-{uuid.uuid4().hex[:8]}"
+        resp = kinesisvideo_client.create_stream(StreamName=name, DataRetentionInHours=24)
+        arn = resp["StreamARN"]
+        try:
+            upd_resp = kinesisvideo_client.update_notification_configuration(
+                StreamName=name,
+                NotificationConfiguration={
+                    "Status": "DISABLED",
+                    "DestinationConfig": {
+                        "Uri": "arn:aws:sns:us-east-1:123456789012:test-topic",
+                    },
+                },
+            )
+            assert upd_resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        finally:
+            kinesisvideo_client.delete_stream(StreamARN=arn)
