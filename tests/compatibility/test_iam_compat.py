@@ -5722,3 +5722,26 @@ class TestIAMNewStubOps:
         """GetDelegationRequest stub returns DelegationRequest."""
         resp = iam.get_delegation_request(DelegationRequestId="a" * 16)
         assert "DelegationRequest" in resp
+
+    def test_reset_service_specific_credential(self, iam):
+        """ResetServiceSpecificCredential stub returns 200."""
+        resp = iam.reset_service_specific_credential(ServiceSpecificCredentialId="a" * 32)
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_update_service_specific_credential(self, iam):
+        """UpdateServiceSpecificCredential stub returns 200."""
+        resp = iam.update_service_specific_credential(
+            ServiceSpecificCredentialId="a" * 32, Status="Inactive"
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_create_delegation_request(self, iam):
+        """CreateDelegationRequest stub returns DelegationRequestId."""
+        resp = iam.create_delegation_request(
+            Description="test delegation",
+            Permissions={"PolicyTemplateArn": "arn:aws:iam::aws:policy/ReadOnlyAccess"},
+            RequestorWorkflowId="wf-12345678901234567890",
+            NotificationChannel="arn:aws:sns:us-east-1:123456789012:test-topic",
+            SessionDuration=3600,
+        )
+        assert "DelegationRequestId" in resp
