@@ -2543,3 +2543,30 @@ class TestLogsGapOps:
             importRoleArn="arn:aws:iam::123456789012:role/LogsImportRole",
         )
         assert "importId" in resp or resp["ResponseMetadata"]["HTTPStatusCode"] in (200, 201)
+
+
+class TestLogsStreamingGapOps:
+    """Tests for CloudWatch Logs streaming operations (use host prefix)."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("logs")
+
+    def test_get_log_object_raises_exception(self, client):
+        """GetLogObject uses streaming- host prefix; returns 501 or event stream error."""
+        import boto3
+        from botocore.config import Config
+        from botocore.eventstream import ChecksumMismatch
+
+        no_prefix_client = boto3.client(
+            "logs",
+            endpoint_url="http://localhost:4566",
+            region_name="us-east-1",
+            aws_access_key_id="test",
+            aws_secret_access_key="test",
+            config=Config(inject_host_prefix=False),
+        )
+        # Returns 501 which botocore's event stream parser may interpret as a
+        # ChecksumMismatch before a ClientError is raised
+        with pytest.raises((ClientError, ChecksumMismatch)):
+            no_prefix_client.get_log_object(logObjectPointer="pointer-abc123")

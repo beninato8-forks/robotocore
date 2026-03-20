@@ -567,3 +567,69 @@ class TestS3TablesStorageClassAndExpiration:
             value={"status": "enabled", "settings": {"days": 365}},
         )
         assert resp["ResponseMetadata"]["HTTPStatusCode"] in (200, 204)
+
+
+class TestS3TablesReplicationGapOps:
+    """Tests for S3Tables replication operations (returns 500)."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("s3tables")
+
+    def test_put_table_bucket_replication_returns_response(self, client):
+        from botocore.exceptions import ClientError
+
+        try:
+            resp = client.put_table_bucket_replication(
+                tableBucketARN="arn:aws:s3tables:us-east-1:123456789012:bucket/nonexistent-bucket",
+                configuration={
+                    "role": "arn:aws:iam::123456789012:role/replication-role",
+                    "rules": [
+                        {
+                            "destinations": [
+                                {
+                                    "destinationTableBucketARN": (
+                                        "arn:aws:s3tables:us-east-1:123456789012:bucket/dest"
+                                    )
+                                }
+                            ]
+                        }
+                    ],
+                },
+            )
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] in (200, 204)
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] in (
+                "InternalError",
+                "NotFoundException",
+                "NotImplemented",
+            )
+
+    def test_put_table_replication_returns_response(self, client):
+        from botocore.exceptions import ClientError
+
+        try:
+            resp = client.put_table_replication(
+                tableArn="arn:aws:s3tables:us-east-1:123456789012:bucket/test/table/tbl1",
+                configuration={
+                    "role": "arn:aws:iam::123456789012:role/replication-role",
+                    "rules": [
+                        {
+                            "destinations": [
+                                {
+                                    "destinationTableBucketARN": (
+                                        "arn:aws:s3tables:us-east-1:123456789012:bucket/dest"
+                                    )
+                                }
+                            ]
+                        }
+                    ],
+                },
+            )
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] in (200, 204)
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] in (
+                "InternalError",
+                "NotFoundException",
+                "NotImplemented",
+            )

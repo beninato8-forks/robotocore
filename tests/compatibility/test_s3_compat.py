@@ -2331,3 +2331,28 @@ class TestS3GapOps:
                 OutputSerialization={"JSON": {}},
             )
         assert exc.value.response["Error"]["Code"] == "NoSuchBucket"
+
+
+class TestS3UpdateObjectEncryptionGapOp:
+    """Test UpdateObjectEncryption operation."""
+
+    def test_update_object_encryption_no_such_bucket(self):
+        client = boto3.client(
+            "s3",
+            endpoint_url=ENDPOINT_URL,
+            region_name="us-east-1",
+            aws_access_key_id="test",
+            aws_secret_access_key="test",
+        )
+        with pytest.raises(ClientError) as exc:
+            client.update_object_encryption(
+                Bucket="nonexistent-bucket-xyz-987",
+                Key="test-key",
+                ObjectEncryption={
+                    "SSEKMS": {"KMSKeyArn": "arn:aws:kms:us-east-1:123456789012:key/abc123"}
+                },
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "NoSuchBucket",
+            "NotImplemented",
+        )

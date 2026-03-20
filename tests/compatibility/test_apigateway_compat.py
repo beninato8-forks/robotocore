@@ -2308,3 +2308,24 @@ class TestAPIGatewayDomainNameAccessAssociation:
         resp = apigw.import_documentation_parts(restApiId="fake-api-id", body=b"{}")
         assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
         assert "ids" in resp
+
+
+class TestAPIGatewayImportApiKeysGapOp:
+    """Test ImportApiKeys operation (returns 501 NotImplemented)."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("apigateway")
+
+    def test_import_api_keys_not_implemented(self, client):
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc:
+            client.import_api_keys(
+                body=b"key1,description1\nkey2,description2",
+                format="csv",
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "BadRequestException",
+        )

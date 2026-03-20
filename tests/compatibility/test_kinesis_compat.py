@@ -1440,3 +1440,23 @@ class TestKinesisNewGapOps:
         with pytest.raises(ClientError) as exc:
             kinesis.update_stream_warm_throughput(StreamARN=fake_arn, WarmThroughputMiBps=1)
         assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+
+class TestKinesisSubscribeToShardGapOp:
+    """Test SubscribeToShard — requires EventStream, so we test error path."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("kinesis")
+
+    def test_subscribe_to_shard_nonexistent_consumer_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.subscribe_to_shard(
+                ConsumerARN="arn:aws:kinesis:us-east-1:123456789012:stream/test/consumer/name:123456789",
+                ShardId="shardId-000000000000",
+                StartingPosition={"Type": "TRIM_HORIZON"},
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "ResourceNotFoundException",
+            "LimitExceededException",
+        )

@@ -2827,3 +2827,63 @@ class TestQuickSightGapOps:
             ResourceArn=f"arn:aws:quicksight:us-east-1:{ACCOUNT_ID}:dashboard/nonexistent",
         )
         assert "Folders" in resp or resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestQuickSightRemainingGapOps:
+    """Tests for remaining QuickSight gap operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("quicksight")
+
+    def test_create_namespace_not_implemented(self, client):
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc:
+            client.create_namespace(
+                AwsAccountId=ACCOUNT_ID,
+                Namespace="testnamespace123",
+                IdentityStore="QUICKSIGHT",
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "ResourceExistsException",
+            "AccessDeniedException",
+        )
+
+    def test_describe_dashboard_snapshot_job_result_not_implemented(self, client):
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc:
+            client.describe_dashboard_snapshot_job_result(
+                AwsAccountId=ACCOUNT_ID,
+                DashboardId="d-nonexistent",
+                SnapshotJobId="job-nonexistent",
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "ResourceNotFoundException",
+        )
+
+    def test_describe_folder_resolved_permissions_not_implemented(self, client):
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc:
+            client.describe_folder_resolved_permissions(
+                AwsAccountId=ACCOUNT_ID,
+                FolderId="folder-nonexistent",
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "ResourceNotFoundException",
+        )
+
+    def test_get_identity_context_returns_response(self, client):
+        resp = client.get_identity_context(
+            AwsAccountId=ACCOUNT_ID,
+            Namespace="default",
+            UserIdentifier={
+                "UserArn": f"arn:aws:quicksight:us-east-1:{ACCOUNT_ID}:user/default/testuser"
+            },
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200

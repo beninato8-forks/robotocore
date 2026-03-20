@@ -1731,3 +1731,31 @@ class TestWAFV2ListWebACLs:
         resp = wafv2.list_web_acls(Scope="REGIONAL")
         names = [w["Name"] for w in resp["WebACLs"]]
         assert name in names
+
+
+class TestWAFv2GetTopPathStatisticsGapOp:
+    """Test GetTopPathStatisticsByTraffic (2025 API, returns 501)."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("wafv2")
+
+    def test_get_top_path_statistics_by_traffic_not_implemented(self, client):
+        import datetime
+
+        with pytest.raises(ClientError) as exc:
+            client.get_top_path_statistics_by_traffic(
+                WebAclArn="arn:aws:wafv2:us-east-1:123456789012:regional/webacl/test/abc",
+                Scope="REGIONAL",
+                TimeWindow={
+                    "StartTime": datetime.datetime(2024, 1, 1),
+                    "EndTime": datetime.datetime(2024, 12, 31),
+                },
+                UriPathPrefix="/",
+                Limit=10,
+                NumberOfTopTrafficBotsPerPath=3,
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "WAFInvalidParameterException",
+        )

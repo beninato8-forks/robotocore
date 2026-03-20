@@ -3549,3 +3549,96 @@ class TestSSMMiscOpsExtended:
         with pytest.raises(ClientError) as exc:
             ssm.get_execution_preview(ExecutionPreviewId="00000000-0000-0000-0000-000000000000")
         assert exc.value.response["Error"]["Code"] != "InternalError"
+
+
+class TestSSMGapOps:
+    """Tests for SSM operations with coverage gaps."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("ssm")
+
+    def test_describe_effective_patches_for_patch_baseline_not_implemented(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_effective_patches_for_patch_baseline(BaselineId="pb-1234567890abcdef0")
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "DoesNotExistException",
+        )
+
+    def test_describe_maintenance_window_executions_empty(self, client):
+        """DescribeMaintenanceWindowExecutions returns empty list for nonexistent window."""
+        with pytest.raises(ClientError) as exc:
+            client.describe_maintenance_window_executions(WindowId="mw-1234567890abcdef0")
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "DoesNotExistException",
+        )
+
+    def test_create_association_batch_not_implemented(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.create_association_batch(
+                Entries=[
+                    {
+                        "Name": "AWS-RunShellScript",
+                        "InstanceId": "i-1234567890abcdef0",
+                    }
+                ]
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "AssociationAlreadyExists",
+            "InvalidDocument",
+        )
+
+    def test_put_inventory_not_implemented(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.put_inventory(
+                InstanceId="i-1234567890abcdef0",
+                Items=[
+                    {
+                        "TypeName": "AWS:Application",
+                        "SchemaVersion": "1.1",
+                        "CaptureTime": "2024-01-01T00:00:00Z",
+                        "ContentHash": "abc123",
+                        "Content": [{"Name": "TestApp", "Version": "1.0"}],
+                    }
+                ],
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "InvalidInventoryItemContextException",
+            "ItemSizeLimitExceededException",
+        )
+
+    def test_register_default_patch_baseline_not_implemented(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.register_default_patch_baseline(BaselineId="pb-1234567890abcdef0")
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "DoesNotExistException",
+        )
+
+    def test_update_patch_baseline_not_implemented(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.update_patch_baseline(BaselineId="pb-1234567890abcdef0")
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "DoesNotExistException",
+        )
+
+    def test_list_nodes_summary_not_implemented(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.list_nodes_summary(
+                Aggregators=[
+                    {
+                        "AggregatorType": "Count",
+                        "AttributeName": "PlatformType",
+                        "TypeName": "Instance",
+                    }
+                ]
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "UnsupportedOperationException",
+        )

@@ -1258,3 +1258,65 @@ class TestLakeFormationGapOps2:
             ResourceArn="arn:aws:s3:::my-lakeformation-bucket",
         )
         assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestLakeFormationQueryPlanningOps:
+    """Tests for LakeFormation query planning operations (use inject_host_prefix=False)."""
+
+    @pytest.fixture
+    def client(self):
+        import boto3
+        from botocore.config import Config
+
+        return boto3.client(
+            "lakeformation",
+            endpoint_url="http://localhost:4566",
+            region_name="us-east-1",
+            aws_access_key_id="test",
+            aws_secret_access_key="test",
+            config=Config(inject_host_prefix=False),
+        )
+
+    def test_start_query_planning_returns_query_id(self, client):
+        resp = client.start_query_planning(
+            QueryPlanningContext={"DatabaseName": "mydb"},
+            QueryString="SELECT 1",
+        )
+        assert "QueryId" in resp
+        assert len(resp["QueryId"]) > 0
+
+    def test_get_query_state_returns_state(self, client):
+        start = client.start_query_planning(
+            QueryPlanningContext={"DatabaseName": "mydb"},
+            QueryString="SELECT 1",
+        )
+        qid = start["QueryId"]
+        resp = client.get_query_state(QueryId=qid)
+        assert "State" in resp
+
+    def test_get_query_statistics_returns_statistics(self, client):
+        start = client.start_query_planning(
+            QueryPlanningContext={"DatabaseName": "mydb"},
+            QueryString="SELECT 1",
+        )
+        qid = start["QueryId"]
+        resp = client.get_query_statistics(QueryId=qid)
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_get_work_units_returns_list(self, client):
+        start = client.start_query_planning(
+            QueryPlanningContext={"DatabaseName": "mydb"},
+            QueryString="SELECT 1",
+        )
+        qid = start["QueryId"]
+        resp = client.get_work_units(QueryId=qid)
+        assert "WorkUnitRanges" in resp
+
+    def test_get_work_unit_results_returns_200(self, client):
+        start = client.start_query_planning(
+            QueryPlanningContext={"DatabaseName": "mydb"},
+            QueryString="SELECT 1",
+        )
+        qid = start["QueryId"]
+        resp = client.get_work_unit_results(QueryId=qid, WorkUnitId=0, WorkUnitToken="token")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200

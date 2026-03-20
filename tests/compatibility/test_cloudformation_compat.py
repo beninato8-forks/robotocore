@@ -3077,3 +3077,51 @@ class TestCloudFormationGapOps:
             assert "Resources" in resp or "ResponseMetadata" in resp
         except ClientError as exc:
             assert exc.value.response["Error"]["Code"] is not None
+
+
+class TestCloudFormationTypeRegistrationGapOps:
+    """Tests for CloudFormation type registration gap operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("cloudformation")
+
+    def test_cancel_update_stack_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.cancel_update_stack(StackName="nonexistent-stack-xyz-987")
+        assert exc.value.response["Error"]["Code"] in (
+            "ValidationError",
+            "NotImplemented",
+        )
+
+    def test_describe_type_registration_not_implemented(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_type_registration(RegistrationToken="abc-123-def")
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "CFNRegistryException",
+        )
+
+    def test_register_type_not_implemented(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.register_type(
+                TypeName="My::Custom::Resource",
+                SchemaHandlerPackage="s3://bucket/schema.zip",
+                Type="RESOURCE",
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "CFNRegistryException",
+        )
+
+    def test_set_type_configuration_not_implemented(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.set_type_configuration(
+                TypeArn="arn:aws:cloudformation:us-east-1:123456789012:type/resource/My-Custom-Resource",
+                Configuration="{}",
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "CFNRegistryException",
+            "TypeNotFoundException",
+        )

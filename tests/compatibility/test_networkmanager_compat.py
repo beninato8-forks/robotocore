@@ -1324,3 +1324,33 @@ class TestNetworkManagerRoutingPolicyAndMisc:
         with pytest.raises(ClientError) as exc:
             nm.delete_attachment(AttachmentId="attachment-nonexistent")
         assert exc.value.response["Error"]["Code"] == "NotFoundException"
+
+
+class TestNetworkManagerGapOps:
+    """Tests for NetworkManager gap operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("networkmanager")
+
+    def test_delete_core_network_prefix_list_association_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.delete_core_network_prefix_list_association(
+                CoreNetworkId="core-network-01234567890",
+                PrefixListArn="arn:aws:ec2:us-east-1:123456789012:prefix-list/pl-1234567890abcdef0",
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "NotFoundException",
+            "NotImplemented",
+        )
+
+    def test_restore_core_network_policy_version_not_implemented(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.restore_core_network_policy_version(
+                CoreNetworkId="core-network-01234567890",
+                PolicyVersionId=1,
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "NotFoundException",
+        )

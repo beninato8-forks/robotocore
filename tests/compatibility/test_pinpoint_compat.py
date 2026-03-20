@@ -1390,3 +1390,47 @@ class TestPinpointMessaging:
             UpdateAttributesRequest={"Blacklist": ["attr1"]},
         )
         assert "AttributesResource" in resp
+
+
+class TestPinpointOTPGapOps:
+    """Tests for Pinpoint OTP operations (return 501 NotImplemented)."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("pinpoint")
+
+    def test_send_otp_message_not_implemented(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.send_otp_message(
+                ApplicationId="app1",
+                SendOTPMessageRequestParameters={
+                    "Channel": "SMS",
+                    "BrandName": "TestBrand",
+                    "CodeLength": 6,
+                    "ValidityPeriod": 300,
+                    "DestinationIdentity": "+15555551234",
+                    "OriginationIdentity": "+15555550000",
+                    "ReferenceId": "ref-001",
+                },
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "NotFoundException",
+            "BadRequestException",
+        )
+
+    def test_verify_otp_message_not_implemented(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.verify_otp_message(
+                ApplicationId="app1",
+                VerifyOTPMessageRequestParameters={
+                    "DestinationIdentity": "+15555551234",
+                    "ReferenceId": "ref-001",
+                    "Otp": "123456",
+                },
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "NotFoundException",
+            "BadRequestException",
+        )

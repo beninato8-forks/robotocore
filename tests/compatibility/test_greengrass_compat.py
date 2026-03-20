@@ -1425,3 +1425,43 @@ class TestGreengrassGapOps:
             UpdateTargetsOperatingSystem="ubuntu",
         )
         assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestGreengrassUnimplementedGapOps:
+    """Tests for Greengrass gap operations (all return 501)."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("greengrass")
+
+    def test_reset_deployments_not_implemented(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.reset_deployments(GroupId="abc-123-group")
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "BadRequestException",
+        )
+
+    def test_stop_bulk_deployment_not_implemented(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.stop_bulk_deployment(BulkDeploymentId="abc-123-bulk")
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "BadRequestException",
+        )
+
+    def test_update_group_certificate_configuration_not_implemented(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.update_group_certificate_configuration(GroupId="abc-123-group")
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "BadRequestException",
+        )
+
+    def test_update_thing_runtime_configuration_not_implemented(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.update_thing_runtime_configuration(ThingName="myThing")
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "BadRequestException",
+        )
