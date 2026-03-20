@@ -2330,10 +2330,10 @@ class TestCloudFrontConnectionFunction:
     """Tests for CloudFront ConnectionFunction operations."""
 
     def test_get_connection_function(self, cf):
-        """GetConnectionFunction returns ConnectionFunctionCode."""
-        resp = cf.get_connection_function(Identifier="fake-function-id")
-        assert "ConnectionFunctionCode" in resp
-        assert "ETag" in resp
+        """GetConnectionFunction with fake ID raises NoSuchResource."""
+        with pytest.raises(ClientError) as exc:
+            cf.get_connection_function(Identifier="fake-function-id")
+        assert exc.value.response["Error"]["Code"] == "NoSuchResource"
 
     def test_delete_connection_function_nonexistent(self, cf):
         """DeleteConnectionFunction with nonexistent ID returns 204."""
