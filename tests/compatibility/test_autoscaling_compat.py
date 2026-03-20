@@ -1454,3 +1454,15 @@ class TestAutoScalingRollback:
         with pytest.raises(ClientError) as exc:
             autoscaling.rollback_instance_refresh(AutoScalingGroupName="nonexistent-asg-xyz")
         assert exc.value.response["Error"]["Code"] == "ValidationError"
+
+
+class TestAutoScalingMetricsCollection:
+    """Test EnableMetricsCollection and DisableMetricsCollection."""
+
+    def test_disable_metrics_collection_nonexistent(self, autoscaling):
+        """DisableMetricsCollection with nonexistent ASG returns ValidationError."""
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc:
+            autoscaling.disable_metrics_collection(AutoScalingGroupName="nonexistent-asg-xyz")
+        assert exc.value.response["Error"]["Code"] == "ValidationError"

@@ -2744,3 +2744,14 @@ class TestDMSMetadataModelOps:
         )
         assert "RequestIdentifier" in resp
         assert len(resp["RequestIdentifier"]) > 0
+
+
+class TestDMSDescribeEngineVersions:
+    """Test DescribeEngineVersions."""
+
+    def test_describe_engine_versions(self, dms):
+        """DescribeEngineVersions returns a list of engine versions."""
+        resp = dms.describe_engine_versions()
+        assert "EngineVersions" in resp
+        assert len(resp["EngineVersions"]) > 0
+        assert "Version" in resp["EngineVersions"][0]

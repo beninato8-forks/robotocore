@@ -885,3 +885,23 @@ class TestComprehendBatchOps:
             TextSegments=[{"Text": "Hello world"}], LanguageCode="en"
         )
         assert "ResultList" in resp
+
+
+class TestComprehendBatchSyntaxTargetedSentiment:
+    """Test BatchDetectSyntax and BatchDetectTargetedSentiment."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("comprehend")
+
+    def test_batch_detect_syntax(self, client):
+        """BatchDetectSyntax returns ResultList."""
+        resp = client.batch_detect_syntax(
+            TextList=["Hello world", "How are you?"], LanguageCode="en"
+        )
+        assert "ResultList" in resp
+
+    def test_batch_detect_targeted_sentiment(self, client):
+        """BatchDetectTargetedSentiment returns ResultList."""
+        resp = client.batch_detect_targeted_sentiment(TextList=["Hello world"], LanguageCode="en")
+        assert "ResultList" in resp

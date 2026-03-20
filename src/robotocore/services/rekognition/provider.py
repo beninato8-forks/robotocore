@@ -29,6 +29,8 @@ _projects: dict[tuple[str, str], dict[str, dict]] = {}
 _stream_processors: dict[tuple[str, str], dict[str, dict]] = {}
 # face liveness sessions: {session_id: {...}}
 _liveness_sessions: dict[str, dict] = {}
+# users: {(acct, region): {collection_id: {user_id: {...user record...}}}}
+_users: dict[tuple[str, str], dict[str, dict[str, dict]]] = {}
 
 _JSON_TYPE = "application/x-amz-json-1.1"
 
@@ -59,6 +61,13 @@ def _get_stream_processors(account_id: str, region: str) -> dict[str, dict]:
     if key not in _stream_processors:
         _stream_processors[key] = {}
     return _stream_processors[key]
+
+
+def _get_users(account_id: str, region: str) -> dict[str, dict[str, dict]]:
+    key = (account_id, region)
+    if key not in _users:
+        _users[key] = {}
+    return _users[key]
 
 
 def _collection_arn(account_id: str, region: str, collection_id: str) -> str:
@@ -194,6 +203,9 @@ def _delete_collection(params: dict, region: str, account_id: str) -> dict:
     # Clean up faces for this collection
     face_store = _get_faces(account_id, region)
     face_store.pop(collection_id, None)
+    # Clean up users for this collection
+    user_store = _get_users(account_id, region)
+    user_store.pop(collection_id, None)
 
     return {"StatusCode": 200}
 
@@ -841,7 +853,224 @@ def _list_users(params: dict, region: str, account_id: str) -> dict:
     if collection_id not in store:
         return _not_found(f"The collection id: {collection_id} does not exist")
 
-    return {"Users": [], "NextToken": None}
+    user_store = _get_users(account_id, region)
+    users_by_id = user_store.get(collection_id, {})
+    max_results = params.get("MaxResults", 100)
+    next_token = params.get("NextToken")
+    all_users = list(users_by_id.values())
+    start = int(next_token) if next_token else 0
+    end = start + max_results
+    page = all_users[start:end]
+    result: dict = {"Users": page}
+    if end < len(all_users):
+        result["NextToken"] = str(end)
+    return result
+
+
+def _create_user(params: dict, region: str, account_id: str) -> dict:
+    collection_id = params.get("CollectionId", "")
+    user_id = params.get("UserId", "")
+    store = _get_collections(account_id, region)
+
+    if collection_id not in store:
+        return _not_found(f"The collection id: {collection_id} does not exist")
+
+    user_store = _get_users(account_id, region)
+    if collection_id not in user_store:
+        user_store[collection_id] = {}
+
+    if user_id in user_store[collection_id]:
+        return (
+            400,
+            {
+                "__type": "ResourceAlreadyExistsException",
+                "Message": f"A user with the specified ID already exists. UserId: {user_id}",
+            },
+        )
+
+    user_store[collection_id][user_id] = {"UserId": user_id, "UserStatus": "ACTIVE"}
+    return {}
+
+
+def _delete_user(params: dict, region: str, account_id: str) -> dict:
+    collection_id = params.get("CollectionId", "")
+    user_id = params.get("UserId", "")
+    store = _get_collections(account_id, region)
+
+    if collection_id not in store:
+        return _not_found(f"The collection id: {collection_id} does not exist")
+
+    user_store = _get_users(account_id, region)
+    if collection_id not in user_store or user_id not in user_store[collection_id]:
+        return _not_found(f"The user id: {user_id} does not exist in the collection")
+
+    del user_store[collection_id][user_id]
+    return {}
+
+
+def _search_users(params: dict, region: str, account_id: str) -> dict:
+    collection_id = params.get("CollectionId", "")
+    user_id = params.get("UserId")
+    face_id = params.get("FaceId")
+    max_users = params.get("MaxUsers", 100)
+    store = _get_collections(account_id, region)
+
+    if collection_id not in store:
+        return _not_found(f"The collection id: {collection_id} does not exist")
+
+    user_store = _get_users(account_id, region)
+    users_by_id = user_store.get(collection_id, {})
+    matches = []
+    for uid, user in list(users_by_id.items())[:max_users]:
+        if user_id and uid == user_id:
+            continue
+        matches.append(
+            {
+                "User": {"UserId": user["UserId"], "UserStatus": user["UserStatus"]},
+                "Similarity": 99.99,
+                "MatchConfidence": 99.99,
+            }
+        )
+    result: dict = {
+        "UserMatches": matches,
+        "FaceModelVersion": store[collection_id]["FaceModelVersion"],
+    }
+    if user_id:
+        result["SearchedUser"] = {"UserId": user_id}
+    if face_id:
+        result["SearchedFace"] = {"FaceId": face_id}
+    return result
+
+
+def _search_users_by_image(params: dict, region: str, account_id: str) -> dict:
+    collection_id = params.get("CollectionId", "")
+    max_users = params.get("MaxUsers", 100)
+    store = _get_collections(account_id, region)
+
+    if collection_id not in store:
+        return _not_found(f"The collection id: {collection_id} does not exist")
+
+    user_store = _get_users(account_id, region)
+    users_by_id = user_store.get(collection_id, {})
+    matches = []
+    for user in list(users_by_id.values())[:max_users]:
+        matches.append(
+            {
+                "User": {"UserId": user["UserId"], "UserStatus": user["UserStatus"]},
+                "Similarity": 99.99,
+                "MatchConfidence": 99.99,
+            }
+        )
+    return {
+        "UserMatches": matches,
+        "FaceModelVersion": store[collection_id]["FaceModelVersion"],
+        "SearchedFace": {
+            "FaceDetail": {
+                "BoundingBox": {"Width": 0.55, "Top": 0.12, "Left": 0.24, "Height": 0.31},
+                "Confidence": 99.99,
+            }
+        },
+    }
+
+
+def _associate_faces(params: dict, region: str, account_id: str) -> dict:
+    collection_id = params.get("CollectionId", "")
+    user_id = params.get("UserId", "")
+    face_ids = params.get("FaceIds", [])
+    store = _get_collections(account_id, region)
+
+    if collection_id not in store:
+        return _not_found(f"The collection id: {collection_id} does not exist")
+
+    user_store = _get_users(account_id, region)
+    if collection_id not in user_store or user_id not in user_store[collection_id]:
+        return _not_found(f"The user id: {user_id} does not exist in the collection")
+
+    user = user_store[collection_id][user_id]
+    user.setdefault("AssociatedFaces", [])
+    face_store = _get_faces(account_id, region)
+    collection_faces = face_store.get(collection_id, {})
+
+    associated = []
+    unsuccessful = []
+    for face_id in face_ids:
+        if face_id in collection_faces:
+            if face_id not in user["AssociatedFaces"]:
+                user["AssociatedFaces"].append(face_id)
+            associated.append({"FaceId": face_id})
+        else:
+            unsuccessful.append(
+                {"FaceId": face_id, "Reasons": ["FACE_NOT_FOUND"], "Confidence": 0.0}
+            )
+
+    return {
+        "AssociatedFaces": associated,
+        "UnsuccessfulFaceAssociations": unsuccessful,
+        "UserStatus": user["UserStatus"],
+    }
+
+
+def _disassociate_faces(params: dict, region: str, account_id: str) -> dict:
+    collection_id = params.get("CollectionId", "")
+    user_id = params.get("UserId", "")
+    face_ids = params.get("FaceIds", [])
+    store = _get_collections(account_id, region)
+
+    if collection_id not in store:
+        return _not_found(f"The collection id: {collection_id} does not exist")
+
+    user_store = _get_users(account_id, region)
+    if collection_id not in user_store or user_id not in user_store[collection_id]:
+        return _not_found(f"The user id: {user_id} does not exist in the collection")
+
+    user = user_store[collection_id][user_id]
+    associated = user.get("AssociatedFaces", [])
+
+    disassociated = []
+    unsuccessful = []
+    for face_id in face_ids:
+        if face_id in associated:
+            associated.remove(face_id)
+            disassociated.append({"FaceId": face_id})
+        else:
+            unsuccessful.append(
+                {
+                    "FaceId": face_id,
+                    "Reasons": ["ASSOCIATED_TO_A_DIFFERENT_USER"],
+                    "Confidence": 0.0,
+                }
+            )
+    user["AssociatedFaces"] = associated
+
+    return {
+        "DisassociatedFaces": disassociated,
+        "UnsuccessfulFaceDisassociations": unsuccessful,
+        "UserStatus": user["UserStatus"],
+    }
+
+
+def _update_stream_processor(params: dict, region: str, account_id: str) -> dict:
+    name = params.get("Name", "")
+    store = _get_stream_processors(account_id, region)
+
+    if name not in store:
+        return _not_found(f"The stream processor {name} was not found.")
+
+    sp = store[name]
+    settings_update = params.get("SettingsForUpdate")
+    if settings_update:
+        sp["Settings"].update(settings_update)
+    regions_update = params.get("RegionsOfInterestForUpdate")
+    if regions_update is not None:
+        sp["RegionsOfInterest"] = regions_update
+    data_sharing_update = params.get("DataSharingPreferenceForUpdate")
+    if data_sharing_update is not None:
+        sp["DataSharingPreference"] = data_sharing_update
+    for param in params.get("ParametersToDelete", []):
+        sp.pop(param, None)
+    sp["LastUpdateTimestamp"] = time.time()
+
+    return {}
 
 
 # ---------------------------------------------------------------------------
@@ -897,4 +1126,12 @@ _ACTION_MAP = {
     "GetFaceLivenessSessionResults": _get_face_liveness_session_results,
     # Users
     "ListUsers": _list_users,
+    "CreateUser": _create_user,
+    "DeleteUser": _delete_user,
+    "SearchUsers": _search_users,
+    "SearchUsersByImage": _search_users_by_image,
+    "AssociateFaces": _associate_faces,
+    "DisassociateFaces": _disassociate_faces,
+    # Stream Processor update
+    "UpdateStreamProcessor": _update_stream_processor,
 }

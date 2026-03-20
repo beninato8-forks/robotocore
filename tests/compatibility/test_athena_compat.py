@@ -1334,3 +1334,12 @@ class TestAthenaGetCapacityAssignmentConfig:
         )
         assert "CapacityAssignmentConfiguration" in resp
         assert "CapacityReservationName" in resp["CapacityAssignmentConfiguration"]
+
+
+class TestAthenaCreateCapacityReservation:
+    """Test CreateCapacityReservation."""
+
+    def test_create_capacity_reservation(self, athena):
+        """CreateCapacityReservation creates a reservation without error."""
+        resp = athena.create_capacity_reservation(Name="test-cr-new", TargetDpus=24)
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200

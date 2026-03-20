@@ -1380,3 +1380,47 @@ class TestMediaConnectTakeRouterInput:
         # Cleanup
         mediaconnect.delete_router_input(Arn=ri_arn)
         mediaconnect.delete_router_output(Arn=ro_arn)
+
+
+class TestMediaConnectMediaStreamsGapOps:
+    """Tests for AddFlowMediaStreams, UpdateFlowMediaStream, UpdateFlowOutput."""
+
+    def test_add_flow_media_streams_nonexistent(self, mediaconnect):
+        """AddFlowMediaStreams with nonexistent flow returns NotFoundException."""
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc_info:
+            mediaconnect.add_flow_media_streams(
+                FlowArn="arn:aws:mediaconnect:us-east-1:123456789012:flow:nonexistent",
+                MediaStreams=[
+                    {
+                        "MediaStreamId": 1,
+                        "MediaStreamName": "test-stream",
+                        "MediaStreamType": "video",
+                    }
+                ],
+            )
+        assert exc_info.value.response["Error"]["Code"] == "NotFoundException"
+
+    def test_update_flow_media_stream_nonexistent(self, mediaconnect):
+        """UpdateFlowMediaStream with nonexistent flow returns NotFoundException."""
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc_info:
+            mediaconnect.update_flow_media_stream(
+                FlowArn="arn:aws:mediaconnect:us-east-1:123456789012:flow:nonexistent",
+                MediaStreamName="test-stream",
+                MediaStreamType="video",
+            )
+        assert exc_info.value.response["Error"]["Code"] == "NotFoundException"
+
+    def test_update_flow_output_nonexistent(self, mediaconnect):
+        """UpdateFlowOutput with nonexistent flow returns NotFoundException."""
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc_info:
+            mediaconnect.update_flow_output(
+                FlowArn="arn:aws:mediaconnect:us-east-1:123456789012:flow:nonexistent",
+                OutputArn="arn:aws:mediaconnect:us-east-1:123456789012:output:nonexistent",
+            )
+        assert exc_info.value.response["Error"]["Code"] == "NotFoundException"
