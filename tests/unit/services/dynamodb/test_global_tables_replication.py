@@ -3,8 +3,8 @@
 import time
 
 import pytest
-from moto import mock_aws
 
+from moto import mock_aws
 from robotocore.services.dynamodb.replication import (
     _add_replication_attrs,
     _item_to_dict,
@@ -25,6 +25,7 @@ def _mock_aws():
 def _create_table_in_region(region: str, table_name: str = "TestTable"):
     """Helper to create a DynamoDB table in a specific region via Moto backend."""
     from moto.backends import get_backend
+
     from moto.core import DEFAULT_ACCOUNT_ID
 
     backend = get_backend("dynamodb")[DEFAULT_ACCOUNT_ID][region]
@@ -48,6 +49,7 @@ def _create_table_in_region(region: str, table_name: str = "TestTable"):
 def _put_item(region: str, table_name: str, item: dict):
     """Put an item into a Moto DynamoDB backend."""
     from moto.backends import get_backend
+
     from moto.core import DEFAULT_ACCOUNT_ID
 
     backend = get_backend("dynamodb")[DEFAULT_ACCOUNT_ID][region]
@@ -57,6 +59,7 @@ def _put_item(region: str, table_name: str, item: dict):
 def _get_item(region: str, table_name: str, key: dict):
     """Get an item from a Moto DynamoDB backend."""
     from moto.backends import get_backend
+
     from moto.core import DEFAULT_ACCOUNT_ID
 
     backend = get_backend("dynamodb")[DEFAULT_ACCOUNT_ID][region]
@@ -117,6 +120,7 @@ class TestCreateReplicaTable:
 
         # Verify table exists in target region
         from moto.backends import get_backend
+
         from moto.core import DEFAULT_ACCOUNT_ID
 
         target = get_backend("dynamodb")[DEFAULT_ACCOUNT_ID]["eu-west-1"]
@@ -167,6 +171,7 @@ class TestReplicateWrite:
 
         # Check item exists in eu-west-1 with replication attrs
         from moto.backends import get_backend
+
         from moto.core import DEFAULT_ACCOUNT_ID
 
         target = get_backend("dynamodb")[DEFAULT_ACCOUNT_ID]["eu-west-1"]
@@ -195,6 +200,7 @@ class TestReplicateWrite:
 
         # The item should be gone in eu-west-1
         from moto.backends import get_backend
+
         from moto.core import DEFAULT_ACCOUNT_ID
 
         target = get_backend("dynamodb")[DEFAULT_ACCOUNT_ID]["eu-west-1"]
@@ -211,6 +217,7 @@ class TestReplicateWrite:
 
         # Should not have replicated
         from moto.backends import get_backend
+
         from moto.core import DEFAULT_ACCOUNT_ID
 
         target = get_backend("dynamodb")[DEFAULT_ACCOUNT_ID]["eu-west-1"]
@@ -247,6 +254,7 @@ class TestBackfillReplica:
 
         # Items should exist in target
         from moto.backends import get_backend
+
         from moto.core import DEFAULT_ACCOUNT_ID
 
         target = get_backend("dynamodb")[DEFAULT_ACCOUNT_ID]["eu-west-1"]

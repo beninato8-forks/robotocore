@@ -1,8 +1,8 @@
 """End-to-end tests for DynamoDB Global Tables lifecycle."""
 
 import pytest
-from moto import mock_aws
 
+from moto import mock_aws
 from robotocore.services.dynamodb.provider import (
     _create_global_table,
     _delete_global_table,
@@ -34,6 +34,7 @@ def _mock_aws_env():
 def _create_moto_table(region: str, table_name: str):
     """Create a DynamoDB table in Moto backend."""
     from moto.backends import get_backend
+
     from moto.core import DEFAULT_ACCOUNT_ID
 
     backend = get_backend("dynamodb")[DEFAULT_ACCOUNT_ID][region]
@@ -55,6 +56,7 @@ def _create_moto_table(region: str, table_name: str):
 
 def _get_moto_item(region: str, table_name: str, key: dict):
     from moto.backends import get_backend
+
     from moto.core import DEFAULT_ACCOUNT_ID
 
     backend = get_backend("dynamodb")[DEFAULT_ACCOUNT_ID][region]
@@ -63,6 +65,7 @@ def _get_moto_item(region: str, table_name: str, key: dict):
 
 def _put_moto_item(region: str, table_name: str, item: dict):
     from moto.backends import get_backend
+
     from moto.core import DEFAULT_ACCOUNT_ID
 
     backend = get_backend("dynamodb")[DEFAULT_ACCOUNT_ID][region]
@@ -178,6 +181,7 @@ class TestUpdateGlobalTable:
 
         # Verify the table was created in the new region
         from moto.backends import get_backend
+
         from moto.core import DEFAULT_ACCOUNT_ID
 
         target = get_backend("dynamodb")[DEFAULT_ACCOUNT_ID]["eu-west-1"]
@@ -348,6 +352,7 @@ class TestCreateReplicaOnGlobalTableCreation:
         )
 
         from moto.backends import get_backend
+
         from moto.core import DEFAULT_ACCOUNT_ID
 
         eu_table = get_backend("dynamodb")[DEFAULT_ACCOUNT_ID]["eu-west-1"].get_table("AutoRep")
