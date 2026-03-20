@@ -12,7 +12,7 @@ import threading
 import time
 from urllib.parse import unquote
 
-from moto.backends import get_backend  # noqa: I001
+from moto.backends import get_backend
 from starlette.requests import Request
 from starlette.responses import Response
 
