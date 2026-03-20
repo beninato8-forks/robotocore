@@ -1706,3 +1706,28 @@ class TestWAFv2APIKeyOperations:
 
         del_resp = wafv2.delete_api_key(Scope="REGIONAL", APIKey=api_key)
         assert del_resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestWAFV2ListWebACLs:
+    def test_list_web_acls_empty(self, wafv2):
+        """ListWebACLs returns a list (possibly empty)."""
+        resp = wafv2.list_web_acls(Scope="REGIONAL")
+        assert "WebACLs" in resp
+        assert isinstance(resp["WebACLs"], list)
+
+    def test_list_web_acls_after_create(self, wafv2):
+        """WebACL appears in ListWebACLs after creation."""
+        name = f"test-acl-{uuid.uuid4().hex[:8]}"
+        wafv2.create_web_acl(
+            Name=name,
+            Scope="REGIONAL",
+            DefaultAction={"Allow": {}},
+            VisibilityConfig={
+                "SampledRequestsEnabled": False,
+                "CloudWatchMetricsEnabled": False,
+                "MetricName": name,
+            },
+        )
+        resp = wafv2.list_web_acls(Scope="REGIONAL")
+        names = [w["Name"] for w in resp["WebACLs"]]
+        assert name in names
