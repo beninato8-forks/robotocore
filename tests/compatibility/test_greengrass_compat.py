@@ -1351,3 +1351,77 @@ class TestGreengrassMissingGapOps:
         """get_connectivity_info returns ConnectivityInfo for a thing."""
         response = greengrass.get_connectivity_info(ThingName="fake-thing")
         assert "ConnectivityInfo" in response
+
+
+class TestGreengrassGapOps:
+    """Tests for Greengrass gap operations that are implemented."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("greengrass")
+
+    def test_update_connectivity_info(self, client):
+        """UpdateConnectivityInfo returns 200 for any thing name."""
+        resp = client.update_connectivity_info(
+            ThingName="fake-thing",
+            ConnectivityInfo=[],
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_start_bulk_deployment(self, client):
+        """StartBulkDeployment returns 200 with BulkDeploymentId."""
+        resp = client.start_bulk_deployment(
+            ExecutionRoleArn="arn:aws:iam::123456789012:role/fake",
+            InputFileUri="s3://fake-bucket/input.json",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_get_bulk_deployment_status(self, client):
+        """GetBulkDeploymentStatus returns 200 for any bulk deployment ID."""
+        resp = client.get_bulk_deployment_status(BulkDeploymentId="fake-id")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_list_bulk_deployment_detailed_reports(self, client):
+        """ListBulkDeploymentDetailedReports returns list for any deployment ID."""
+        resp = client.list_bulk_deployment_detailed_reports(BulkDeploymentId="fake-id")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_get_group_certificate_configuration(self, client):
+        """GetGroupCertificateConfiguration returns 200 for any group ID."""
+        resp = client.get_group_certificate_configuration(GroupId="fake-group-id")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_list_group_certificate_authorities(self, client):
+        """ListGroupCertificateAuthorities returns 200 for any group ID."""
+        resp = client.list_group_certificate_authorities(GroupId="fake-group-id")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_get_group_certificate_authority(self, client):
+        """GetGroupCertificateAuthority returns 200 for any group and CA IDs."""
+        resp = client.get_group_certificate_authority(
+            GroupId="fake-group-id",
+            CertificateAuthorityId="fake-ca-id",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_create_group_certificate_authority(self, client):
+        """CreateGroupCertificateAuthority returns 200 for any group ID."""
+        resp = client.create_group_certificate_authority(GroupId="fake-group-id")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_get_thing_runtime_configuration(self, client):
+        """GetThingRuntimeConfiguration returns 200 for any thing name."""
+        resp = client.get_thing_runtime_configuration(ThingName="fake-thing")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_create_software_update_job(self, client):
+        """CreateSoftwareUpdateJob returns 200 with required params."""
+        resp = client.create_software_update_job(
+            S3UrlSignerRole="arn:aws:iam::123456789012:role/fake",
+            SoftwareToUpdate="core",
+            UpdateAgentLogLevel="INFO",
+            UpdateTargets=["arn:aws:iot:us-east-1:123456789012:thing/fake-device"],
+            UpdateTargetsArchitecture="x86_64",
+            UpdateTargetsOperatingSystem="ubuntu",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200

@@ -793,3 +793,33 @@ class TestFSxMissingGapOps:
             "ResourceNotFoundException",
             "BadRequest",
         )
+
+
+class TestFSxGapOps:
+    """Tests for FSx ops that are implemented but weren't covered."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("fsx")
+
+    def test_restore_volume_from_snapshot_not_found(self, client):
+        """RestoreVolumeFromSnapshot raises VolumeNotFound for nonexistent volume."""
+        with pytest.raises(ClientError) as exc:
+            client.restore_volume_from_snapshot(
+                VolumeId="fsvol-0123456789abcdef0",
+                SnapshotId="fssnap-0123456789abcdef0",
+            )
+        err = exc.value.response["Error"]["Code"]
+        assert err in ("VolumeNotFound", "ResourceNotFoundException", "InvalidRequest")
+
+    def test_describe_file_system_aliases_not_found(self, client):
+        """DescribeFileSystemAliases raises FileSystemNotFound for nonexistent FS."""
+        with pytest.raises(ClientError) as exc:
+            client.describe_file_system_aliases(FileSystemId="fs-0123456789abcdef0")
+        err = exc.value.response["Error"]["Code"]
+        assert err in ("FileSystemNotFound", "ResourceNotFoundException")
+
+    def test_start_misconfigured_state_recovery(self, client):
+        """StartMisconfiguredStateRecovery returns 200 for any filesystem ID."""
+        resp = client.start_misconfigured_state_recovery(FileSystemId="fs-0123456789abcdef0")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200

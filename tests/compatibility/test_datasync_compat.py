@@ -848,3 +848,79 @@ class TestDataSyncTagAndUpdateOps:
             assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
         finally:
             datasync.delete_location(LocationArn=arn)
+
+
+class TestDataSyncUpdateLocationGapOps:
+    """Tests for DataSync UpdateLocation* ops and UpdateTaskExecution."""
+
+    FAKE_ARN = "arn:aws:datasync:us-east-1:123456789012:location/loc-0123456789abcdef0"
+
+    @pytest.fixture
+    def client(self):
+        return make_client("datasync")
+
+    def test_update_location_azure_blob_invalid(self, client):
+        """UpdateLocationAzureBlob raises InvalidRequestException for nonexistent location."""
+        with pytest.raises(ClientError) as exc:
+            client.update_location_azure_blob(LocationArn=self.FAKE_ARN)
+        assert exc.value.response["Error"]["Code"] == "InvalidRequestException"
+
+    def test_update_location_efs_invalid(self, client):
+        """UpdateLocationEfs raises InvalidRequestException for nonexistent location."""
+        with pytest.raises(ClientError) as exc:
+            client.update_location_efs(LocationArn=self.FAKE_ARN)
+        assert exc.value.response["Error"]["Code"] == "InvalidRequestException"
+
+    def test_update_location_fsx_lustre_invalid(self, client):
+        """UpdateLocationFsxLustre raises InvalidRequestException for nonexistent location."""
+        with pytest.raises(ClientError) as exc:
+            client.update_location_fsx_lustre(LocationArn=self.FAKE_ARN)
+        assert exc.value.response["Error"]["Code"] == "InvalidRequestException"
+
+    def test_update_location_fsx_ontap_invalid(self, client):
+        """UpdateLocationFsxOntap raises InvalidRequestException for nonexistent location."""
+        with pytest.raises(ClientError) as exc:
+            client.update_location_fsx_ontap(LocationArn=self.FAKE_ARN)
+        assert exc.value.response["Error"]["Code"] == "InvalidRequestException"
+
+    def test_update_location_fsx_open_zfs_invalid(self, client):
+        """UpdateLocationFsxOpenZfs raises InvalidRequestException for nonexistent location."""
+        with pytest.raises(ClientError) as exc:
+            client.update_location_fsx_open_zfs(LocationArn=self.FAKE_ARN)
+        assert exc.value.response["Error"]["Code"] == "InvalidRequestException"
+
+    def test_update_location_fsx_windows_invalid(self, client):
+        """UpdateLocationFsxWindows raises InvalidRequestException for nonexistent location."""
+        with pytest.raises(ClientError) as exc:
+            client.update_location_fsx_windows(LocationArn=self.FAKE_ARN)
+        assert exc.value.response["Error"]["Code"] == "InvalidRequestException"
+
+    def test_update_location_hdfs_invalid(self, client):
+        """UpdateLocationHdfs raises InvalidRequestException for nonexistent location."""
+        with pytest.raises(ClientError) as exc:
+            client.update_location_hdfs(LocationArn=self.FAKE_ARN)
+        assert exc.value.response["Error"]["Code"] == "InvalidRequestException"
+
+    def test_update_location_smb_invalid(self, client):
+        """UpdateLocationSmb raises InvalidRequestException for nonexistent location."""
+        with pytest.raises(ClientError) as exc:
+            client.update_location_smb(LocationArn=self.FAKE_ARN)
+        assert exc.value.response["Error"]["Code"] == "InvalidRequestException"
+
+    def test_update_location_object_storage_invalid(self, client):
+        """UpdateLocationObjectStorage raises InvalidRequestException for nonexistent location."""
+        with pytest.raises(ClientError) as exc:
+            client.update_location_object_storage(LocationArn=self.FAKE_ARN)
+        assert exc.value.response["Error"]["Code"] == "InvalidRequestException"
+
+    def test_update_task_execution(self, client):
+        """UpdateTaskExecution succeeds (returns 200) even for nonexistent task execution."""
+        fake_exec_arn = (
+            "arn:aws:datasync:us-east-1:123456789012:task/"
+            "task-0123456789abcdef0/execution/exec-0123456789abcdef0"
+        )
+        resp = client.update_task_execution(
+            TaskExecutionArn=fake_exec_arn,
+            Options={},
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200

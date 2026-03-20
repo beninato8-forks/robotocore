@@ -1013,3 +1013,27 @@ class TestTranscribeCallAnalyticsAndTags:
             assert untag_resp["ResponseMetadata"]["HTTPStatusCode"] == 200
         finally:
             client.delete_vocabulary(VocabularyName=name)
+
+
+class TestTranscribeGapOps:
+    """Tests for Transcribe gap operations that are implemented."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("transcribe")
+
+    def test_get_medical_scribe_job_not_found(self, client):
+        """GetMedicalScribeJob raises BadRequestException for nonexistent job."""
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc:
+            client.get_medical_scribe_job(MedicalScribeJobName="nonexistent-job-xyz")
+        assert exc.value.response["Error"]["Code"] == "BadRequestException"
+
+    def test_delete_medical_scribe_job_not_found(self, client):
+        """DeleteMedicalScribeJob raises BadRequestException for nonexistent job."""
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc:
+            client.delete_medical_scribe_job(MedicalScribeJobName="nonexistent-job-xyz")
+        assert exc.value.response["Error"]["Code"] == "BadRequestException"
