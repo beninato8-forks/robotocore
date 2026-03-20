@@ -66,6 +66,21 @@ class TestMediaPackageChannels:
         assert exc.value.response["Error"]["Code"] == "NotFoundException"
 
 
+class TestMediaPackageHarvestJobs:
+    def test_list_harvest_jobs(self, mediapackage):
+        response = mediapackage.list_harvest_jobs()
+        assert "HarvestJobs" in response
+        assert isinstance(response["HarvestJobs"], list)
+
+    def test_describe_harvest_job_nonexistent(self, mediapackage):
+        """DescribeHarvestJob for nonexistent job raises NotFoundException."""
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc:
+            mediapackage.describe_harvest_job(Id="no-such-harvest-job")
+        assert exc.value.response["Error"]["Code"] == "NotFoundException"
+
+
 class TestMediaPackageOriginEndpoints:
     def test_list_origin_endpoints(self, mediapackage):
         response = mediapackage.list_origin_endpoints()

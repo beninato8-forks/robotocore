@@ -227,6 +227,15 @@ class TestMediaStoreTagsForResource:
         assert "Tags" in resp
         assert isinstance(resp["Tags"], list)
 
+    def test_list_tags_for_nonexistent_resource(self, mediastore_client):
+        """ListTagsForResource for nonexistent container raises ContainerNotFoundException."""
+        from botocore.exceptions import ClientError
+
+        fake_arn = "arn:aws:mediastore:us-east-1:123456789012:container/no-such-container-xyz"
+        with pytest.raises(ClientError) as exc:
+            mediastore_client.list_tags_for_resource(Resource=fake_arn)
+        assert exc.value.response["Error"]["Code"] == "ContainerNotFoundException"
+
     def test_list_tags_for_resource_with_tags(self, mediastore_client):
         name = f"tagged-{uuid.uuid4().hex[:8]}"
         tags = [{"Key": "env", "Value": "test"}, {"Key": "project", "Value": "compat"}]
