@@ -218,3 +218,62 @@ class TestConnectCampaignsOperations:
         status = result["connectInstanceOnboardingJobStatus"]
         assert status["connectInstanceId"] == "12345678-1234-1234-1234-123456789012"
         assert status["status"] in ("IN_PROGRESS", "SUCCEEDED", "FAILED")
+
+
+class TestConnectCampaignsUpdateOps:
+    """Tests for update/batch operations added to Moto fork."""
+
+    def test_update_campaign_name(self, connectcampaigns):
+        """UpdateCampaignName changes the name of a campaign."""
+        resp = _create_campaign(connectcampaigns, name="original-name")
+        campaign_id = resp["id"]
+        try:
+            connectcampaigns.update_campaign_name(id=campaign_id, name="new-name")
+            desc = connectcampaigns.describe_campaign(id=campaign_id)
+            assert desc["campaign"]["name"] == "new-name"
+        finally:
+            connectcampaigns.delete_campaign(id=campaign_id)
+
+    def test_update_campaign_dialer_config(self, connectcampaigns):
+        """UpdateCampaignDialerConfig updates the dialer configuration."""
+        resp = _create_campaign(connectcampaigns, name="dialer-update-test")
+        campaign_id = resp["id"]
+        try:
+            connectcampaigns.update_campaign_dialer_config(
+                id=campaign_id,
+                dialerConfig={"predictiveDialerConfig": {"bandwidthAllocation": 0.8}},
+            )
+            desc = connectcampaigns.describe_campaign(id=campaign_id)
+            assert "dialerConfig" in desc["campaign"]
+        finally:
+            connectcampaigns.delete_campaign(id=campaign_id)
+
+    def test_update_campaign_outbound_call_config(self, connectcampaigns):
+        """UpdateCampaignOutboundCallConfig updates contact flow ID."""
+        resp = _create_campaign(connectcampaigns, name="outbound-update-test")
+        campaign_id = resp["id"]
+        try:
+            connectcampaigns.update_campaign_outbound_call_config(
+                id=campaign_id,
+                connectContactFlowId="bbbbbbbb-cccc-dddd-eeee-ffffffffffff",
+            )
+            desc = connectcampaigns.describe_campaign(id=campaign_id)
+            cfg = desc["campaign"]["outboundCallConfig"]
+            assert cfg["connectContactFlowId"] == "bbbbbbbb-cccc-dddd-eeee-ffffffffffff"
+        finally:
+            connectcampaigns.delete_campaign(id=campaign_id)
+
+    def test_get_campaign_state_batch(self, connectcampaigns):
+        """GetCampaignStateBatch returns state for multiple campaigns."""
+        resp1 = _create_campaign(connectcampaigns, name="batch-state-1")
+        resp2 = _create_campaign(connectcampaigns, name="batch-state-2")
+        id1, id2 = resp1["id"], resp2["id"]
+        try:
+            result = connectcampaigns.get_campaign_state_batch(campaignIds=[id1, id2])
+            assert "successfulRequests" in result
+            ids_returned = [r["campaignId"] for r in result["successfulRequests"]]
+            assert id1 in ids_returned
+            assert id2 in ids_returned
+        finally:
+            connectcampaigns.delete_campaign(id=id1)
+            connectcampaigns.delete_campaign(id=id2)
