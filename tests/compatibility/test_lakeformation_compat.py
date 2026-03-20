@@ -1172,3 +1172,63 @@ class TestLakeFormationNewStubOps:
         )
         assert "Objects" in resp
         assert isinstance(resp["Objects"], list)
+
+    def test_get_temporary_data_location_credentials(self, client):
+        """GetTemporaryDataLocationCredentials returns credentials."""
+        resp = client.get_temporary_data_location_credentials(
+            DataLocations=["s3://my-bucket/"],
+            DurationSeconds=900,
+        )
+        assert "Credentials" in resp
+
+    def test_create_lake_formation_opt_in(self, client):
+        """CreateLakeFormationOptIn succeeds."""
+        resp = client.create_lake_formation_opt_in(
+            Principal={"DataLakePrincipalIdentifier": "arn:aws:iam::123456789012:role/test-role"},
+            Resource={"Catalog": {}},
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_delete_lake_formation_opt_in(self, client):
+        """DeleteLakeFormationOptIn succeeds."""
+        resp = client.delete_lake_formation_opt_in(
+            Principal={"DataLakePrincipalIdentifier": "arn:aws:iam::123456789012:role/test-role"},
+            Resource={"Catalog": {}},
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_extend_transaction(self, client):
+        """ExtendTransaction succeeds for a transaction."""
+        txn = client.start_transaction(TransactionType="READ_AND_WRITE")
+        txn_id = txn["TransactionId"]
+        resp = client.extend_transaction(TransactionId=txn_id)
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_update_table_storage_optimizer(self, client):
+        """UpdateTableStorageOptimizer returns a result message."""
+        resp = client.update_table_storage_optimizer(
+            DatabaseName="test-db",
+            TableName="test-table",
+            StorageOptimizerConfig={"COMPACTION": {"IsEnabled": "true"}},
+        )
+        assert "Result" in resp
+
+    def test_update_table_objects(self, client):
+        """UpdateTableObjects succeeds (stub)."""
+        txn = client.start_transaction(TransactionType="READ_AND_WRITE")
+        txn_id = txn["TransactionId"]
+        resp = client.update_table_objects(
+            DatabaseName="test-db",
+            TableName="test-table",
+            TransactionId=txn_id,
+            WriteOperations=[
+                {
+                    "AddObject": {
+                        "Uri": "s3://my-bucket/data/file1.parquet",
+                        "ETag": "abc123",
+                        "Size": 1024,
+                    }
+                }
+            ],
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200

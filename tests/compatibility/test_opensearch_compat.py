@@ -1701,3 +1701,31 @@ class TestOpenSearchMissingGapOps:
             assert resp["TargetVersion"] == "OpenSearch_2.3"
         finally:
             opensearch.delete_domain(DomainName=name)
+
+
+class TestOpenSearchNewStubOps:
+    """Tests for newly-implemented opensearch stub operations."""
+
+    @pytest.fixture
+    def opensearch(self):
+        return make_client("opensearch")
+
+    def test_list_direct_query_data_sources(self, opensearch):
+        """ListDirectQueryDataSources returns a list."""
+        resp = opensearch.list_direct_query_data_sources()
+        assert "DirectQueryDataSources" in resp
+
+    def test_reject_inbound_connection(self, opensearch):
+        """RejectInboundConnection returns the connection with REJECTED status."""
+        resp = opensearch.reject_inbound_connection(ConnectionId="fake-conn-id")
+        assert "Connection" in resp
+
+    def test_cancel_domain_config_change(self, opensearch):
+        """CancelDomainConfigChange returns dry run and cancelled change ids."""
+        name = _unique_domain()
+        opensearch.create_domain(DomainName=name)
+        try:
+            resp = opensearch.cancel_domain_config_change(DomainName=name, DryRun=True)
+            assert "CancelledChangeIds" in resp
+        finally:
+            opensearch.delete_domain(DomainName=name)
