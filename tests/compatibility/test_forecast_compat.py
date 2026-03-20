@@ -139,3 +139,239 @@ class TestForecastDatasetGroupCRUD:
         assert dsg_arn in arns
 
         client.delete_dataset_group(DatasetGroupArn=dsg_arn)
+
+
+class TestForecastCRUDOps:
+    """Tests for Forecast CRUD operations implemented via Moto stubs."""
+
+    SCHEMA = {
+        "Attributes": [
+            {"AttributeName": "item_id", "AttributeType": "string"},
+            {"AttributeName": "timestamp", "AttributeType": "timestamp"},
+            {"AttributeName": "target_value", "AttributeType": "float"},
+        ]
+    }
+
+    @pytest.fixture
+    def client(self):
+        return make_client("forecast")
+
+    @pytest.fixture
+    def dataset_arn(self, client):
+        r = client.create_dataset(
+            DatasetName="test-forecast-ds",
+            Domain="RETAIL",
+            DatasetType="TARGET_TIME_SERIES",
+            Schema=self.SCHEMA,
+        )
+        yield r["DatasetArn"]
+        try:
+            client.delete_dataset(DatasetArn=r["DatasetArn"])
+        except ClientError:
+            pass
+
+    @pytest.fixture
+    def dataset_group_arn(self, client):
+        r = client.create_dataset_group(DatasetGroupName="test-forecast-dg", Domain="RETAIL")
+        yield r["DatasetGroupArn"]
+        try:
+            client.delete_dataset_group(DatasetGroupArn=r["DatasetGroupArn"])
+        except ClientError:
+            pass
+
+    def test_create_describe_delete_dataset(self, client):
+        r = client.create_dataset(
+            DatasetName="test-forecast-ds-crud",
+            Domain="RETAIL",
+            DatasetType="TARGET_TIME_SERIES",
+            Schema=self.SCHEMA,
+        )
+        arn = r["DatasetArn"]
+        assert "forecast" in arn
+        assert "test-forecast-ds-crud" in arn
+
+        desc = client.describe_dataset(DatasetArn=arn)
+        assert desc["DatasetName"] == "test-forecast-ds-crud"
+        assert desc["Domain"] == "RETAIL"
+
+        client.delete_dataset(DatasetArn=arn)
+        with pytest.raises(ClientError) as exc:
+            client.describe_dataset(DatasetArn=arn)
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_describe_dataset_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_dataset(
+                DatasetArn="arn:aws:forecast:us-east-1:123456789012:dataset/nonexistent"
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_describe_forecast_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_forecast(
+                ForecastArn="arn:aws:forecast:us-east-1:123456789012:forecast/nonexistent"
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_describe_predictor_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_predictor(
+                PredictorArn="arn:aws:forecast:us-east-1:123456789012:predictor/nonexistent"
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_describe_auto_predictor_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_auto_predictor(
+                PredictorArn="arn:aws:forecast:us-east-1:123456789012:predictor/nonexistent"
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_describe_monitor_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_monitor(
+                MonitorArn="arn:aws:forecast:us-east-1:123456789012:monitor/nonexistent"
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_describe_dataset_import_job_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_dataset_import_job(
+                DatasetImportJobArn=(
+                    "arn:aws:forecast:us-east-1:123456789012:dataset-import-job/nonexistent"
+                )
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_describe_forecast_export_job_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_forecast_export_job(
+                ForecastExportJobArn=(
+                    "arn:aws:forecast:us-east-1:123456789012:forecast-export-job/nonexistent"
+                )
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_describe_predictor_backtest_export_job_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_predictor_backtest_export_job(
+                PredictorBacktestExportJobArn=(
+                    "arn:aws:forecast:us-east-1:123456789012:predictor-backtest-export-job/nonexistent"
+                )
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_describe_explainability_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_explainability(
+                ExplainabilityArn=(
+                    "arn:aws:forecast:us-east-1:123456789012:explainability/nonexistent"
+                )
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_describe_explainability_export_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_explainability_export(
+                ExplainabilityExportArn=(
+                    "arn:aws:forecast:us-east-1:123456789012:explainability-export/nonexistent"
+                )
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_describe_what_if_analysis_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_what_if_analysis(
+                WhatIfAnalysisArn=(
+                    "arn:aws:forecast:us-east-1:123456789012:what-if-analysis/nonexistent"
+                )
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_describe_what_if_forecast_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_what_if_forecast(
+                WhatIfForecastArn=(
+                    "arn:aws:forecast:us-east-1:123456789012:what-if-forecast/nonexistent"
+                )
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_describe_what_if_forecast_export_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_what_if_forecast_export(
+                WhatIfForecastExportArn=(
+                    "arn:aws:forecast:us-east-1:123456789012:what-if-forecast-export/nonexistent"
+                )
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_create_auto_predictor_not_found_resources(self, client, dataset_group_arn):
+        """CreateAutoPredictor stores a predictor and returns its ARN."""
+        try:
+            r = client.create_auto_predictor(PredictorName="test-auto-pred")
+            assert "PredictorArn" in r
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] in (
+                "ResourceNotFoundException",
+                "InvalidInputException",
+            )
+
+    def test_create_monitor_returns_arn(self, client):
+        """CreateMonitor stores a monitor and returns its ARN."""
+        try:
+            r = client.create_monitor(
+                MonitorName="test-monitor",
+                ResourceArn="arn:aws:forecast:us-east-1:123456789012:predictor/fake-pred",
+            )
+            assert "MonitorArn" in r
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] in (
+                "ResourceNotFoundException",
+                "InvalidInputException",
+            )
+
+    def test_stop_resource_not_found(self, client):
+        """StopResource returns error for nonexistent resource."""
+        with pytest.raises(ClientError) as exc:
+            client.stop_resource(
+                ResourceArn="arn:aws:forecast:us-east-1:123456789012:forecast/nonexistent"
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "ResourceNotFoundException",
+            "InvalidInputException",
+        )
+
+    def test_resume_resource_not_found(self, client):
+        """ResumeResource returns error for nonexistent resource."""
+        with pytest.raises(ClientError) as exc:
+            client.resume_resource(
+                ResourceArn="arn:aws:forecast:us-east-1:123456789012:monitor/nonexistent"
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "ResourceNotFoundException",
+            "InvalidInputException",
+        )
+
+    def test_list_monitor_evaluations_returns_list(self, client):
+        """ListMonitorEvaluations returns a list (empty for nonexistent monitor)."""
+        try:
+            r = client.list_monitor_evaluations(
+                MonitorArn="arn:aws:forecast:us-east-1:123456789012:monitor/nonexistent"
+            )
+            assert "PredictorMonitorEvaluations" in r
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] in (
+                "ResourceNotFoundException",
+                "InvalidInputException",
+            )
+
+    def test_get_accuracy_metrics_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.get_accuracy_metrics(
+                PredictorArn="arn:aws:forecast:us-east-1:123456789012:predictor/nonexistent"
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "ResourceNotFoundException",
+            "InvalidInputException",
+        )

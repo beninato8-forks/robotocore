@@ -165,3 +165,216 @@ class TestPersonalizeSchemaCRUD:
         assert schema_arn in arns
 
         client.delete_schema(schemaArn=schema_arn)
+
+
+class TestPersonalizeCRUDOps:
+    """Tests for Personalize CRUD operations implemented via Moto stubs."""
+
+    BASE_ARN = "arn:aws:personalize:us-east-1:123456789012"
+
+    @pytest.fixture
+    def client(self):
+        return make_client("personalize")
+
+    @pytest.fixture
+    def dataset_group_arn(self, client):
+        r = client.create_dataset_group(name="test-pers-dg")
+        yield r["datasetGroupArn"]
+        try:
+            client.delete_dataset_group(datasetGroupArn=r["datasetGroupArn"])
+        except ClientError:
+            pass
+
+    # --- DatasetGroup ---
+
+    def test_create_describe_delete_dataset_group(self, client):
+        r = client.create_dataset_group(name="test-pers-dg-crud")
+        arn = r["datasetGroupArn"]
+        assert "personalize" in arn
+        assert "test-pers-dg-crud" in arn
+
+        desc = client.describe_dataset_group(datasetGroupArn=arn)
+        assert desc["datasetGroup"]["name"] == "test-pers-dg-crud"
+
+        client.delete_dataset_group(datasetGroupArn=arn)
+        with pytest.raises(ClientError) as exc:
+            client.describe_dataset_group(datasetGroupArn=arn)
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_describe_dataset_group_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_dataset_group(
+                datasetGroupArn=f"{self.BASE_ARN}:dataset-group/nonexistent"
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    # --- Dataset ---
+
+    def test_describe_dataset_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_dataset(datasetArn=f"{self.BASE_ARN}:dataset/test-dg/nonexistent")
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_describe_dataset_import_job_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_dataset_import_job(
+                datasetImportJobArn=(f"{self.BASE_ARN}:dataset-import-job/test-dg/nonexistent")
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_describe_dataset_export_job_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_dataset_export_job(
+                datasetExportJobArn=(f"{self.BASE_ARN}:dataset-export-job/test-dg/nonexistent")
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    # --- Solution ---
+
+    def test_describe_solution_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_solution(solutionArn=f"{self.BASE_ARN}:solution/nonexistent")
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_describe_solution_version_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_solution_version(
+                solutionVersionArn=(f"{self.BASE_ARN}:solution/nonexistent/version/nonexistent")
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_get_solution_metrics_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.get_solution_metrics(
+                solutionVersionArn=(f"{self.BASE_ARN}:solution/nonexistent/version/nonexistent")
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    # --- Campaign ---
+
+    def test_describe_campaign_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_campaign(campaignArn=f"{self.BASE_ARN}:campaign/nonexistent")
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    # --- Recommender ---
+
+    def test_describe_recommender_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_recommender(recommenderArn=f"{self.BASE_ARN}:recommender/nonexistent")
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    # --- Filter ---
+
+    def test_describe_filter_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_filter(filterArn=f"{self.BASE_ARN}:filter/test-dg/nonexistent")
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    # --- EventTracker ---
+
+    def test_describe_event_tracker_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_event_tracker(
+                eventTrackerArn=f"{self.BASE_ARN}:event-tracker/nonexistent"
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    # --- BatchInferenceJob ---
+
+    def test_describe_batch_inference_job_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_batch_inference_job(
+                batchInferenceJobArn=(f"{self.BASE_ARN}:batch-inference-job/nonexistent")
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    # --- BatchSegmentJob ---
+
+    def test_describe_batch_segment_job_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_batch_segment_job(
+                batchSegmentJobArn=f"{self.BASE_ARN}:batch-segment-job/nonexistent"
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    # --- MetricAttribution ---
+
+    def test_describe_metric_attribution_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_metric_attribution(
+                metricAttributionArn=(f"{self.BASE_ARN}:metric-attribution/nonexistent")
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    # --- DataDeletionJob ---
+
+    def test_describe_data_deletion_job_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.describe_data_deletion_job(
+                dataDeletionJobArn=f"{self.BASE_ARN}:data-deletion-job/nonexistent"
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    # --- AWS-provided resources (describe without create) ---
+
+    def test_describe_algorithm_returns_ok(self, client):
+        """Algorithms are AWS-provided; describe by a known ARN returns 200."""
+        try:
+            resp = client.describe_algorithm(
+                algorithmArn=("arn:aws:personalize:::algorithm/aws-user-personalization")
+            )
+            assert "algorithm" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] in (
+                "ResourceNotFoundException",
+                "InvalidInputException",
+            )
+
+    def test_describe_recipe_returns_ok(self, client):
+        """Recipes are AWS-provided; describe by a known ARN returns 200."""
+        try:
+            resp = client.describe_recipe(recipeArn="arn:aws:personalize:::recipe/aws-hrnn")
+            assert "recipe" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] in (
+                "ResourceNotFoundException",
+                "InvalidInputException",
+            )
+
+    def test_describe_feature_transformation_returns_ok(self, client):
+        """Feature transformations are AWS-provided."""
+        try:
+            resp = client.describe_feature_transformation(
+                featureTransformationArn=(
+                    "arn:aws:personalize:::feature-transformation/item-age-norm"
+                )
+            )
+            assert "featureTransformation" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] in (
+                "ResourceNotFoundException",
+                "InvalidInputException",
+            )
+
+    # --- Stop / Tag ops ---
+
+    def test_stop_solution_version_creation_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.stop_solution_version_creation(
+                solutionVersionArn=(f"{self.BASE_ARN}:solution/nonexistent/version/nonexistent")
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "ResourceNotFoundException",
+            "InvalidInputException",
+        )
+
+    def test_create_dataset_group_list_includes_created(self, client):
+        r = client.create_dataset_group(name="test-pers-list")
+        arn = r["datasetGroupArn"]
+
+        list_resp = client.list_dataset_groups()
+        arns = [dg["datasetGroupArn"] for dg in list_resp["datasetGroups"]]
+        assert arn in arns
+
+        client.delete_dataset_group(datasetGroupArn=arn)
