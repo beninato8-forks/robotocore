@@ -5120,12 +5120,12 @@ class TestGlueIdentityCenterConfiguration:
         try:
             glue.delete_glue_identity_center_configuration()
         except Exception:
-            pass
+            pass  # best-effort cleanup
         yield
         try:
             glue.delete_glue_identity_center_configuration()
         except Exception:
-            pass
+            pass  # best-effort cleanup
 
     def test_create_glue_identity_center_configuration(self, glue):
         """CreateGlueIdentityCenterConfiguration returns ApplicationArn."""
