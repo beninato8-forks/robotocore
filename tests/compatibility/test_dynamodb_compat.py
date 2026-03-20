@@ -3337,3 +3337,15 @@ class TestDynamoDBGlobalTableSettings:
         with pytest.raises(ClientError) as exc:
             dynamodb.describe_global_table_settings(GlobalTableName="nonexistent-global-table-xyz")
         assert exc.value.response["Error"]["Code"] == "GlobalTableNotFoundException"
+
+
+class TestDynamoDBDescribeImport:
+    """Test DescribeImport."""
+
+    def test_describe_import_nonexistent(self, dynamodb):
+        """DescribeImport with nonexistent ARN raises ResourceNotFoundException."""
+        with pytest.raises(ClientError) as exc:
+            dynamodb.describe_import(
+                ImportArn="arn:aws:dynamodb:us-east-1:123456789012:table/test/import/nonexistent"
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"

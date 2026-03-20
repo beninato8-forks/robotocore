@@ -13,7 +13,7 @@ from collections.abc import Callable
 from starlette.requests import Request
 from starlette.responses import Response
 
-from robotocore.services.kinesis.models import KinesisStore, _get_store
+from robotocore.services.kinesis.models import KinesisStore, KinesisStream, _get_store
 
 logger = logging.getLogger(__name__)
 
@@ -458,6 +458,43 @@ def _remove_tags(store: KinesisStore, params: dict, region: str, account_id: str
     return {}
 
 
+def _get_stream_by_arn(store: KinesisStore, arn: str) -> "KinesisStream | None":
+    for stream in store.streams.values():
+        if stream.arn == arn:
+            return stream
+    return None
+
+
+def _tag_resource(store: KinesisStore, params: dict, region: str, account_id: str) -> dict:
+    arn = params.get("ResourceARN", "")
+    stream = _get_stream_by_arn(store, arn)
+    if not stream:
+        raise KinesisError("ResourceNotFoundException", f"Resource {arn} not found.")
+    tags = params.get("Tags", {})
+    stream.tags.update(tags)
+    return {}
+
+
+def _untag_resource(store: KinesisStore, params: dict, region: str, account_id: str) -> dict:
+    arn = params.get("ResourceARN", "")
+    stream = _get_stream_by_arn(store, arn)
+    if not stream:
+        raise KinesisError("ResourceNotFoundException", f"Resource {arn} not found.")
+    for key in params.get("TagKeys", []):
+        stream.tags.pop(key, None)
+    return {}
+
+
+def _update_stream_mode(store: KinesisStore, params: dict, region: str, account_id: str) -> dict:
+    arn = params.get("StreamARN", "")
+    mode_details = params.get("StreamModeDetails", {})
+    stream = _get_stream_by_arn(store, arn)
+    if not stream:
+        raise KinesisError("ResourceNotFoundException", f"Stream not found: {arn}")
+    stream.stream_mode = mode_details.get("StreamMode", "PROVISIONED")
+    return {}
+
+
 def _describe_stream_summary(
     store: KinesisStore, params: dict, region: str, account_id: str
 ) -> dict:
@@ -887,6 +924,9 @@ _ACTION_MAP: dict[str, Callable] = {
     "AddTagsToStream": _add_tags,
     "RemoveTagsFromStream": _remove_tags,
     "ListTagsForStream": _list_tags,
+    "TagResource": _tag_resource,
+    "UntagResource": _untag_resource,
+    "UpdateStreamMode": _update_stream_mode,
     "DescribeStreamSummary": _describe_stream_summary,
     "UpdateShardCount": _update_shard_count,
     "StartStreamEncryption": _start_stream_encryption,

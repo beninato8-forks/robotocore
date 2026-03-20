@@ -121,6 +121,44 @@ def _delete_sampling_rule(params: dict, region: str, account_id: str) -> dict:
     return {"SamplingRuleRecord": record}
 
 
+def _update_sampling_rule(params: dict, region: str, account_id: str) -> dict:
+    update = params.get("SamplingRuleUpdate", {})
+    rule_name = update.get("RuleName", "")
+    rule_arn = update.get("RuleARN", "")
+
+    record = None
+    if rule_name and rule_name in _sampling_rules:
+        record = _sampling_rules[rule_name]
+    elif rule_arn:
+        for rec in _sampling_rules.values():
+            if rec["SamplingRule"].get("RuleARN") == rule_arn:
+                record = rec
+                break
+
+    if record is None:
+        name = rule_name or rule_arn
+        return _error_response("InvalidRequestException", f"Sampling rule not found: {name}", 400)
+
+    rule = record["SamplingRule"]
+    updatable_fields = (
+        "ResourceARN",
+        "Priority",
+        "FixedRate",
+        "ReservoirSize",
+        "ServiceName",
+        "ServiceType",
+        "Host",
+        "HTTPMethod",
+        "URLPath",
+        "Attributes",
+    )
+    for field in updatable_fields:
+        if field in update:
+            rule[field] = update[field]
+
+    return {"SamplingRuleRecord": record}
+
+
 def _get_sampling_statistic_summaries(params: dict, region: str, account_id: str) -> dict:
     return {"SamplingStatisticSummaries": [], "NextToken": None}
 
@@ -185,6 +223,32 @@ def _delete_group(params: dict, region: str, account_id: str) -> dict:
                 break
 
     return {}
+
+
+def _update_group(params: dict, region: str, account_id: str) -> dict:
+    group_name = params.get("GroupName", "")
+    group_arn = params.get("GroupARN", "")
+
+    group = None
+    if group_name and group_name in _groups:
+        group = _groups[group_name]
+    elif group_arn:
+        for g in _groups.values():
+            if g["GroupARN"] == group_arn:
+                group = g
+                break
+
+    if group is None:
+        return _error_response(
+            "InvalidRequestException", f"Group not found: {group_name or group_arn}", 400
+        )
+
+    if "FilterExpression" in params:
+        group["FilterExpression"] = params["FilterExpression"]
+    if "InsightsConfiguration" in params:
+        group["InsightsConfiguration"] = params["InsightsConfiguration"]
+
+    return {"Group": group}
 
 
 def _get_encryption_config(params: dict, region: str, account_id: str) -> dict:
@@ -355,11 +419,13 @@ _PATH_MAP = {
     "/CreateSamplingRule": _create_sampling_rule,
     "/GetSamplingRules": _get_sampling_rules,
     "/DeleteSamplingRule": _delete_sampling_rule,
+    "/UpdateSamplingRule": _update_sampling_rule,
     "/SamplingStatisticSummaries": _get_sampling_statistic_summaries,
     "/CreateGroup": _create_group,
     "/GetGroup": _get_group,
     "/Groups": _get_groups,
     "/DeleteGroup": _delete_group,
+    "/UpdateGroup": _update_group,
     "/EncryptionConfig": _get_encryption_config,
     "/PutEncryptionConfig": _put_encryption_config,
     "/TagResource": _tag_resource,

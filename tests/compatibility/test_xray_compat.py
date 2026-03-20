@@ -611,3 +611,55 @@ class TestXRayTraceSegmentDestination:
         assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
         assert "Destination" in resp
         assert resp["Destination"] == "XRay"
+
+
+class TestXRayUpdateGroupAndSamplingRule:
+    """Test UpdateGroup and UpdateSamplingRule."""
+
+    def test_update_group(self, xray):
+        """UpdateGroup modifies filter expression of an existing group."""
+        import uuid
+
+        group_name = f"test-group-{uuid.uuid4().hex[:8]}"
+        xray.create_group(GroupName=group_name, FilterExpression='service("old")')
+
+        resp = xray.update_group(GroupName=group_name, FilterExpression='service("new")')
+        assert resp["Group"]["FilterExpression"] == 'service("new")'
+
+    def test_update_sampling_rule(self, xray):
+        """UpdateSamplingRule modifies an existing sampling rule."""
+        import uuid
+
+        rule_name = f"test-rule-{uuid.uuid4().hex[:8]}"
+        xray.create_sampling_rule(
+            SamplingRule={
+                "RuleName": rule_name,
+                "ResourceARN": "*",
+                "Priority": 1000,
+                "FixedRate": 0.05,
+                "ReservoirSize": 1,
+                "ServiceName": "*",
+                "ServiceType": "*",
+                "Host": "*",
+                "HTTPMethod": "*",
+                "URLPath": "*",
+                "Version": 1,
+            }
+        )
+
+        resp = xray.update_sampling_rule(
+            SamplingRuleUpdate={
+                "RuleName": rule_name,
+                "FixedRate": 0.10,
+                "ReservoirSize": 2,
+                "Host": "*",
+                "ServiceName": "*",
+                "ServiceType": "*",
+                "HTTPMethod": "*",
+                "URLPath": "*",
+                "ResourceARN": "*",
+                "Priority": 900,
+            }
+        )
+        assert resp["SamplingRuleRecord"]["SamplingRule"]["FixedRate"] == 0.10
+        assert resp["SamplingRuleRecord"]["SamplingRule"]["Priority"] == 900

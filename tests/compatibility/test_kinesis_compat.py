@@ -1392,3 +1392,29 @@ class TestKinesisNewOps:
             MinimumThroughputBillingCommitment={"Status": "DISABLED"}
         )
         assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestKinesisTagResourceAndStreamMode:
+    """Test TagResource, UntagResource, UpdateStreamMode."""
+
+    @pytest.fixture
+    def stream_arn(self, kinesis):
+        name = f"test-tag-stream-{uuid.uuid4().hex[:8]}"
+        kinesis.create_stream(StreamName=name, ShardCount=1)
+        time.sleep(0.3)
+        desc = kinesis.describe_stream(StreamName=name)
+        arn = desc["StreamDescription"]["StreamARN"]
+        yield arn
+        kinesis.delete_stream(StreamName=name)
+
+    def test_tag_and_untag_resource(self, kinesis, stream_arn):
+        """TagResource and UntagResource work on a stream ARN."""
+        kinesis.tag_resource(ResourceARN=stream_arn, Tags={"Env": "test", "App": "myapp"})
+        kinesis.untag_resource(ResourceARN=stream_arn, TagKeys=["App"])
+
+    def test_update_stream_mode(self, kinesis, stream_arn):
+        """UpdateStreamMode changes the stream mode."""
+        resp = kinesis.update_stream_mode(
+            StreamARN=stream_arn, StreamModeDetails={"StreamMode": "ON_DEMAND"}
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
