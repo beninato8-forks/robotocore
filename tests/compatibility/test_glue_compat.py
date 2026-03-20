@@ -4865,12 +4865,14 @@ class TestGlueStubOps:
             DagNodes=[{"Id": "node1", "NodeType": "S3", "Args": []}],
             DagEdges=[],
         )
-        assert "PythonScript" in resp or "ScalaCode" in resp or resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert (
+            "PythonScript" in resp
+            or "ScalaCode" in resp
+            or resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        )
 
     def test_test_connection_nonexistent(self, glue):
         """TestConnection with nonexistent connection raises error."""
         with pytest.raises(ClientError) as exc:
             glue.test_connection(ConnectionName="nonexistent-conn")
-        assert exc.value.response["Error"]["Code"] in (
-            "EntityNotFoundException", "InternalError"
-        )
+        assert exc.value.response["Error"]["Code"] in ("EntityNotFoundException", "InternalError")
