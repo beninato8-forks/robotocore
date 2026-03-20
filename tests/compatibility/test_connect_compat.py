@@ -3096,3 +3096,17 @@ class TestConnectEmailAddresses:
                 EmailAddressId=str(uuid.uuid4()),
             )
         assert exc_info.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+
+class TestConnectDataTableAttribute:
+    """Tests for DescribeDataTableAttribute operation."""
+
+    def test_describe_data_table_attribute_nonexistent(self, connect):
+        """DescribeDataTableAttribute with nonexistent IDs raises ResourceNotFoundException."""
+        with pytest.raises(ClientError) as exc:
+            connect.describe_data_table_attribute(
+                InstanceId="fake-instance-id-xyz",
+                DataTableId="fake-dt-id-xyz",
+                AttributeName="agentWorkload",
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
