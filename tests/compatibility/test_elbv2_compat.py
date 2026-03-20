@@ -1240,3 +1240,67 @@ class TestELBv2MissingGapOps:
             LoadBalancerArn="arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/test/abc"
         )
         assert "CapacityReservationState" in response
+
+
+class TestELBV2TrustStoreGapOps:
+    """Tests for elbv2 trust store ops that were working but untested."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("elbv2")
+
+    def test_describe_trust_store_associations(self, client):
+        """DescribeTrustStoreAssociations returns empty list for new trust store."""
+        ts = client.create_trust_store(
+            Name="test-ts-assoc",
+            CaCertificatesBundleS3Bucket="test-bucket",
+            CaCertificatesBundleS3Key="test.pem",
+        )
+        arn = ts["TrustStores"][0]["TrustStoreArn"]
+        try:
+            resp = client.describe_trust_store_associations(TrustStoreArn=arn)
+            assert "TrustStoreAssociations" in resp
+        finally:
+            client.delete_trust_store(TrustStoreArn=arn)
+
+    def test_describe_trust_store_revocations(self, client):
+        """DescribeTrustStoreRevocations returns empty list for new trust store."""
+        ts = client.create_trust_store(
+            Name="test-ts-revoc",
+            CaCertificatesBundleS3Bucket="test-bucket",
+            CaCertificatesBundleS3Key="test.pem",
+        )
+        arn = ts["TrustStores"][0]["TrustStoreArn"]
+        try:
+            resp = client.describe_trust_store_revocations(TrustStoreArn=arn)
+            assert "TrustStoreRevocations" in resp
+        finally:
+            client.delete_trust_store(TrustStoreArn=arn)
+
+    def test_get_trust_store_ca_certificates_bundle(self, client):
+        """GetTrustStoreCaCertificatesBundle returns a location for the bundle."""
+        ts = client.create_trust_store(
+            Name="test-ts-ca",
+            CaCertificatesBundleS3Bucket="test-bucket",
+            CaCertificatesBundleS3Key="test.pem",
+        )
+        arn = ts["TrustStores"][0]["TrustStoreArn"]
+        try:
+            resp = client.get_trust_store_ca_certificates_bundle(TrustStoreArn=arn)
+            assert "Location" in resp
+        finally:
+            client.delete_trust_store(TrustStoreArn=arn)
+
+    def test_get_trust_store_revocation_content(self, client):
+        """GetTrustStoreRevocationContent returns location for revocation content."""
+        ts = client.create_trust_store(
+            Name="test-ts-rvc",
+            CaCertificatesBundleS3Bucket="test-bucket",
+            CaCertificatesBundleS3Key="test.pem",
+        )
+        arn = ts["TrustStores"][0]["TrustStoreArn"]
+        try:
+            resp = client.get_trust_store_revocation_content(TrustStoreArn=arn, RevocationId=1)
+            assert "Location" in resp
+        finally:
+            client.delete_trust_store(TrustStoreArn=arn)

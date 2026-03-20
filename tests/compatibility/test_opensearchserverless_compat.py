@@ -842,3 +842,35 @@ class TestOpenSearchServerlessIndex:
         with pytest.raises(ClientError) as exc:
             client.get_index(id="nonexistent-collection", indexName="my-index")
         assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+
+class TestOpenSearchServerlessGapOps:
+    """Tests for opensearchserverless ops that were working but untested."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("opensearchserverless")
+
+    def test_update_account_settings(self, client):
+        """UpdateAccountSettings returns account settings details."""
+        resp = client.update_account_settings()
+        assert "accountSettingsDetail" in resp
+        assert "capacityLimits" in resp["accountSettingsDetail"]
+
+    def test_update_collection_nonexistent(self, client):
+        """UpdateCollection raises ResourceNotFoundException for nonexistent collection."""
+        with pytest.raises(ClientError) as exc:
+            client.update_collection(id="nonexistent-collection-id")
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_delete_security_policy_nonexistent(self, client):
+        """DeleteSecurityPolicy raises ResourceNotFoundException for nonexistent policy."""
+        with pytest.raises(ClientError) as exc:
+            client.delete_security_policy(name="nonexistent-policy", type="data")
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_update_vpc_endpoint_nonexistent(self, client):
+        """UpdateVpcEndpoint raises ResourceNotFoundException for nonexistent endpoint."""
+        with pytest.raises(ClientError) as exc:
+            client.update_vpc_endpoint(id="nonexistent-endpoint-id")
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"

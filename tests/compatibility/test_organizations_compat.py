@@ -1047,3 +1047,28 @@ class TestOrganizationsResourcePolicy:
         orgs.create_organization(FeatureSet="ALL")
         with pytest.raises(orgs.exceptions.ResourcePolicyNotFoundException):
             orgs.describe_resource_policy()
+
+
+class TestOrganizationsGapOps:
+    """Tests for organization ops that were working but untested."""
+
+    @pytest.fixture
+    def orgs_with_org(self):
+        client = make_client("organizations")
+        client.create_organization(FeatureSet="ALL")
+        return client
+
+    def test_delete_resource_policy_not_found(self, orgs_with_org):
+        """DeleteResourcePolicy raises ResourcePolicyNotFoundException when none exists."""
+        with pytest.raises(orgs_with_org.exceptions.ResourcePolicyNotFoundException):
+            orgs_with_org.delete_resource_policy()
+
+    def test_list_policies_for_target(self, orgs_with_org):
+        """ListPoliciesForTarget returns policies for a target (root/OU/account)."""
+        roots = orgs_with_org.list_roots()["Roots"]
+        root_id = roots[0]["Id"]
+        resp = orgs_with_org.list_policies_for_target(
+            TargetId=root_id, Filter="SERVICE_CONTROL_POLICY"
+        )
+        assert "Policies" in resp
+        assert isinstance(resp["Policies"], list)

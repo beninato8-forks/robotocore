@@ -1123,3 +1123,20 @@ class TestLakeFormationIdentityCenterCRUD:
         with pytest.raises(BotoClientError) as exc:
             client.update_lake_formation_identity_center_configuration()
         assert exc.value.response["Error"]["Code"] == "EntityNotFoundException"
+
+
+class TestLakeFormationGapOps:
+    """Tests for lakeformation ops that are working but weren't tested."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("lakeformation")
+
+    def test_revoke_permissions(self, client):
+        """RevokePermissions can be called and returns 200."""
+        resp = client.revoke_permissions(
+            Principal={"DataLakePrincipalIdentifier": "arn:aws:iam::123456789012:role/test-role"},
+            Resource={"Catalog": {}},
+            Permissions=["ALL"],
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200

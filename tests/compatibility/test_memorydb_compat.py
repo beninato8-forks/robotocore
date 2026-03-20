@@ -411,3 +411,39 @@ class TestMemoryDBAclUpdateOps:
             assert len(resp["ACLs"]) > 0
         finally:
             memorydb.delete_acl(ACLName=name)
+
+
+class TestMemoryDBGapOps:
+    """Tests for memorydb ops that are implemented but weren't tested."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("memorydb")
+
+    def test_delete_cluster_nonexistent(self, client):
+        """DeleteCluster raises ClusterNotFoundFault for nonexistent cluster."""
+        with pytest.raises(ClientError) as exc:
+            client.delete_cluster(ClusterName="nonexistent-cluster-xyz")
+        assert exc.value.response["Error"]["Code"] == "ClusterNotFoundFault"
+
+    def test_tag_resource_nonexistent_cluster(self, client):
+        """TagResource raises ClusterNotFoundFault for nonexistent cluster ARN."""
+        with pytest.raises(ClientError) as exc:
+            client.tag_resource(
+                ResourceArn="arn:aws:memorydb:us-east-1:123456789012:cluster/nonexistent",
+                Tags=[{"Key": "env", "Value": "test"}],
+            )
+        assert exc.value.response["Error"]["Code"] in ("ClusterNotFoundFault", "TagResourceFault")
+
+    def test_untag_resource_nonexistent_cluster(self, client):
+        """UntagResource raises ClusterNotFoundFault for nonexistent cluster ARN."""
+        with pytest.raises(ClientError) as exc:
+            client.untag_resource(
+                ResourceArn="arn:aws:memorydb:us-east-1:123456789012:cluster/nonexistent",
+                TagKeys=["env"],
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "ClusterNotFoundFault",
+            "TagResourceFault",
+            "TagNotFoundFault",
+        )

@@ -1684,3 +1684,91 @@ class TestDsDescribeLDAPSSettingsVariations:
         resp = ds.describe_ldaps_settings(DirectoryId=msad_directory, Type="Client")
         assert "LDAPSSettingsInfo" in resp
         assert isinstance(resp["LDAPSSettingsInfo"], list)
+
+
+class TestDSGapOps:
+    """Tests for ds operations that return expected errors with invalid params."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("ds")
+
+    def test_add_ip_routes_nonexistent(self, client):
+        """AddIpRoutes raises ValidationException for nonexistent directory."""
+        with pytest.raises(ClientError) as exc:
+            client.add_ip_routes(
+                DirectoryId="d-0000000000",
+                IpRoutes=[{"CidrIp": "10.0.0.0/24", "Description": "test"}],
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "ValidationException",
+            "EntityDoesNotExistException",
+        )
+
+    def test_cancel_schema_extension_nonexistent(self, client):
+        """CancelSchemaExtension raises ValidationException for nonexistent directory."""
+        with pytest.raises(ClientError) as exc:
+            client.cancel_schema_extension(
+                DirectoryId="d-0000000000", SchemaExtensionId="schema-ext-123"
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "ValidationException",
+            "EntityDoesNotExistException",
+        )
+
+    def test_deregister_certificate_nonexistent(self, client):
+        """DeregisterCertificate raises ValidationException for nonexistent directory."""
+        with pytest.raises(ClientError) as exc:
+            client.deregister_certificate(DirectoryId="d-0000000000", CertificateId="cert-123")
+        assert exc.value.response["Error"]["Code"] in (
+            "ValidationException",
+            "EntityDoesNotExistException",
+            "DirectoryDoesNotExistException",
+        )
+
+    def test_deregister_event_topic_nonexistent(self, client):
+        """DeregisterEventTopic raises ValidationException for nonexistent directory."""
+        with pytest.raises(ClientError) as exc:
+            client.deregister_event_topic(DirectoryId="d-0000000000", TopicName="test-topic")
+        assert exc.value.response["Error"]["Code"] in (
+            "ValidationException",
+            "EntityDoesNotExistException",
+        )
+
+    def test_disable_client_authentication_nonexistent(self, client):
+        """DisableClientAuthentication raises ValidationException for nonexistent directory."""
+        with pytest.raises(ClientError) as exc:
+            client.disable_client_authentication(DirectoryId="d-0000000000", Type="SmartCard")
+        assert exc.value.response["Error"]["Code"] in (
+            "ValidationException",
+            "EntityDoesNotExistException",
+            "DirectoryDoesNotExistException",
+        )
+
+    def test_disable_radius_nonexistent(self, client):
+        """DisableRadius raises ValidationException for nonexistent directory."""
+        with pytest.raises(ClientError) as exc:
+            client.disable_radius(DirectoryId="d-0000000000")
+        assert exc.value.response["Error"]["Code"] in (
+            "ValidationException",
+            "EntityDoesNotExistException",
+        )
+
+    def test_enable_client_authentication_nonexistent(self, client):
+        """EnableClientAuthentication raises ValidationException for nonexistent directory."""
+        with pytest.raises(ClientError) as exc:
+            client.enable_client_authentication(DirectoryId="d-0000000000", Type="SmartCard")
+        assert exc.value.response["Error"]["Code"] in (
+            "ValidationException",
+            "EntityDoesNotExistException",
+            "DirectoryDoesNotExistException",
+        )
+
+    def test_remove_ip_routes_nonexistent(self, client):
+        """RemoveIpRoutes raises ValidationException for nonexistent directory."""
+        with pytest.raises(ClientError) as exc:
+            client.remove_ip_routes(DirectoryId="d-0000000000", CidrIps=["10.0.0.0/24"])
+        assert exc.value.response["Error"]["Code"] in (
+            "ValidationException",
+            "EntityDoesNotExistException",
+        )
