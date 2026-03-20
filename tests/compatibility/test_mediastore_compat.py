@@ -252,3 +252,97 @@ class TestMediaStoreTagsForResource:
                 mediastore_client.delete_container(ContainerName=name)
             except Exception:
                 pass  # best-effort cleanup
+
+
+class TestMediaStoreCorsTagLogging:
+    """Tests for CORS policy, tagging, and access logging operations."""
+
+    def test_put_and_get_cors_policy(self, mediastore_client):
+        """PutCorsPolicy stores policy, GetCorsPolicy retrieves it."""
+        name = f"cors-test-{uuid.uuid4().hex[:8]}"
+        mediastore_client.create_container(ContainerName=name)
+        try:
+            mediastore_client.put_cors_policy(
+                ContainerName=name,
+                CorsPolicy=[
+                    {
+                        "AllowedOrigins": ["https://example.com"],
+                        "AllowedMethods": ["GET", "HEAD"],
+                        "AllowedHeaders": ["Authorization"],
+                        "MaxAgeSeconds": 3000,
+                    }
+                ],
+            )
+            resp = mediastore_client.get_cors_policy(ContainerName=name)
+            assert "CorsPolicy" in resp
+            assert len(resp["CorsPolicy"]) == 1
+            assert resp["CorsPolicy"][0]["AllowedMethods"] == ["GET", "HEAD"]
+        finally:
+            mediastore_client.delete_container(ContainerName=name)
+
+    def test_delete_cors_policy(self, mediastore_client):
+        """DeleteCorsPolicy removes the CORS policy."""
+        from botocore.exceptions import ClientError
+
+        name = f"cors-del-{uuid.uuid4().hex[:8]}"
+        mediastore_client.create_container(ContainerName=name)
+        try:
+            mediastore_client.put_cors_policy(
+                ContainerName=name,
+                CorsPolicy=[{"AllowedOrigins": ["*"], "AllowedHeaders": ["*"]}],
+            )
+            mediastore_client.delete_cors_policy(ContainerName=name)
+            with pytest.raises(ClientError):
+                mediastore_client.get_cors_policy(ContainerName=name)
+        finally:
+            mediastore_client.delete_container(ContainerName=name)
+
+    def test_delete_container_policy(self, mediastore_client):
+        """DeleteContainerPolicy on container with no policy succeeds."""
+        name = f"policy-del-{uuid.uuid4().hex[:8]}"
+        mediastore_client.create_container(ContainerName=name)
+        try:
+            mediastore_client.delete_container_policy(ContainerName=name)
+        finally:
+            mediastore_client.delete_container(ContainerName=name)
+
+    def test_delete_lifecycle_and_metric_policy(self, mediastore_client):
+        """DeleteLifecyclePolicy and DeleteMetricPolicy succeed on containers."""
+        name = f"lc-mt-{uuid.uuid4().hex[:8]}"
+        mediastore_client.create_container(ContainerName=name)
+        try:
+            mediastore_client.delete_lifecycle_policy(ContainerName=name)
+            mediastore_client.delete_metric_policy(ContainerName=name)
+        finally:
+            mediastore_client.delete_container(ContainerName=name)
+
+    def test_start_and_stop_access_logging(self, mediastore_client):
+        """StartAccessLogging and StopAccessLogging succeed on containers."""
+        name = f"logging-{uuid.uuid4().hex[:8]}"
+        mediastore_client.create_container(ContainerName=name)
+        try:
+            mediastore_client.start_access_logging(ContainerName=name)
+            mediastore_client.stop_access_logging(ContainerName=name)
+        finally:
+            mediastore_client.delete_container(ContainerName=name)
+
+    def test_tag_and_untag_resource(self, mediastore_client):
+        """TagResource adds tags, UntagResource removes them."""
+        name = f"tag-{uuid.uuid4().hex[:8]}"
+        mediastore_client.create_container(ContainerName=name)
+        try:
+            desc = mediastore_client.describe_container(ContainerName=name)
+            arn = desc["Container"]["ARN"]
+            mediastore_client.tag_resource(
+                Resource=arn,
+                Tags=[{"Key": "team", "Value": "infra"}],
+            )
+            tags_resp = mediastore_client.list_tags_for_resource(Resource=arn)
+            keys = {t["Key"] for t in tags_resp["Tags"]}
+            assert "team" in keys
+            mediastore_client.untag_resource(Resource=arn, TagKeys=["team"])
+            tags_after = mediastore_client.list_tags_for_resource(Resource=arn)
+            keys_after = {t["Key"] for t in tags_after["Tags"]}
+            assert "team" not in keys_after
+        finally:
+            mediastore_client.delete_container(ContainerName=name)
