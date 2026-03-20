@@ -287,3 +287,26 @@ class TestMQBrokerEngineTypes:
         with pytest.raises(ClientError) as exc:
             mq.list_configuration_revisions(ConfigurationId="nonexistent-config-xyz")
         assert exc.value.response["Error"]["Code"] == "NotFoundException"
+
+
+class TestMQNewOps:
+    """Tests for newly working MQ operations."""
+
+    def test_describe_broker_instance_options(self, mq):
+        resp = mq.describe_broker_instance_options()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "BrokerInstanceOptions" in resp
+
+    def test_delete_configuration_not_found(self, mq):
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc:
+            mq.delete_configuration(ConfigurationId="nonexistent-config-xyz")
+        assert exc.value.response["Error"]["Code"] == "NotFoundException"
+
+    def test_promote_not_found(self, mq):
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc:
+            mq.promote(BrokerId="nonexistent-broker-xyz", Mode="SWITCHOVER")
+        assert exc.value.response["Error"]["Code"] == "NotFoundException"

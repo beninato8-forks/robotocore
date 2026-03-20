@@ -558,3 +558,17 @@ class TestELBClassicSubnetsAndSecurityGroups:
             assert vpc_resources["subnet2_id"] not in resp["Subnets"]
         finally:
             elb.delete_load_balancer(LoadBalancerName=name)
+
+
+class TestELBAccountLimitsAndPolicies:
+    """Tests for DescribeAccountLimits and DescribeLoadBalancerPolicyTypes."""
+
+    def test_describe_account_limits(self, elb):
+        resp = elb.describe_account_limits()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "Limits" in resp
+
+    def test_describe_load_balancer_policy_types(self, elb):
+        resp = elb.describe_load_balancer_policy_types()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "PolicyTypeDescriptions" in resp

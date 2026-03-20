@@ -1381,3 +1381,14 @@ class TestKinesisTagsForResource:
                 ResourceARN="arn:aws:kinesis:us-east-1:123456789012:stream/nonexistent-stream-xyz"
             )
         assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+
+class TestKinesisNewOps:
+    """Tests for newly working Kinesis operations."""
+
+    def test_update_account_settings(self, kinesis):
+        """UpdateAccountSettings returns 200."""
+        resp = kinesis.update_account_settings(
+            MinimumThroughputBillingCommitment={"Status": "DISABLED"}
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
