@@ -2178,9 +2178,10 @@ class TestCloudFrontMiscOperations:
     """Tests for GetConnectionFunction, UpdateAnycastIpList, UpdateDomainAssociation."""
 
     def test_get_connection_function(self, cf):
-        """GetConnectionFunction with a fake ID returns 200."""
-        resp = cf.get_connection_function(Identifier="fake-func-id")
-        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        """GetConnectionFunction with a fake ID raises NoSuchResource."""
+        with pytest.raises(ClientError) as exc:
+            cf.get_connection_function(Identifier="fake-func-id")
+        assert exc.value.response["Error"]["Code"] == "NoSuchResource"
 
     def test_update_anycast_ip_list_nonexistent(self, cf):
         """UpdateAnycastIpList with a non-existent ID raises NoSuchResource."""
