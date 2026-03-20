@@ -3669,3 +3669,85 @@ class TestS3ControlNewStubOps:
         resp = client.list_regional_buckets(AccountId=self.ACCOUNT_ID)
         assert "RegionalBucketList" in resp
         assert isinstance(resp["RegionalBucketList"], list)
+
+
+class TestS3ControlIdentityCenterAndNewStubs:
+    """Tests for new S3 Control stub operations: identity center, data access,
+    object lambda config, directory bucket access points, bucket versioning."""
+
+    ACCOUNT_ID = "123456789012"
+
+    @pytest.fixture
+    def client(self):
+        return make_client("s3control")
+
+    def test_associate_access_grants_identity_center(self, client):
+        """AssociateAccessGrantsIdentityCenter returns 200."""
+        resp = client.associate_access_grants_identity_center(
+            AccountId=self.ACCOUNT_ID,
+            IdentityCenterArn="arn:aws:sso:::instance/ssoins-test",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_dissociate_access_grants_identity_center(self, client):
+        """DissociateAccessGrantsIdentityCenter returns 200."""
+        resp = client.dissociate_access_grants_identity_center(AccountId=self.ACCOUNT_ID)
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_get_data_access(self, client):
+        """GetDataAccess returns 200."""
+        resp = client.get_data_access(
+            AccountId=self.ACCOUNT_ID,
+            Target="s3://my-bucket/",
+            Permission="READ",
+            DurationSeconds=3600,
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_list_access_points_for_directory_buckets(self, client):
+        """ListAccessPointsForDirectoryBuckets returns 200."""
+        resp = client.list_access_points_for_directory_buckets(AccountId=self.ACCOUNT_ID)
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_get_access_point_configuration_for_object_lambda(self, client):
+        """GetAccessPointConfigurationForObjectLambda returns 200."""
+        resp = client.get_access_point_configuration_for_object_lambda(
+            AccountId=self.ACCOUNT_ID, Name="test-ap"
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_put_access_point_configuration_for_object_lambda(self, client):
+        """PutAccessPointConfigurationForObjectLambda returns 200."""
+        resp = client.put_access_point_configuration_for_object_lambda(
+            AccountId=self.ACCOUNT_ID,
+            Name="test-ap",
+            Configuration={
+                "SupportingAccessPoint": "arn:aws:s3:us-east-1:123456789012:accesspoint/test",
+                "TransformationConfigurations": [
+                    {
+                        "Actions": ["GetObject"],
+                        "ContentTransformation": {
+                            "AwsLambda": {
+                                "FunctionArn": "arn:aws:lambda:us-east-1:123456789012:function:test"
+                            }
+                        },
+                    }
+                ],
+            },
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_put_bucket_versioning_nonexistent(self, client):
+        """PutBucketVersioning raises NoSuchBucket for a nonexistent bucket."""
+        with pytest.raises(ClientError) as exc:
+            client.put_bucket_versioning(
+                AccountId=self.ACCOUNT_ID,
+                Bucket="no-such-bucket",
+                VersioningConfiguration={"Status": "Enabled"},
+            )
+        assert exc.value.response["Error"]["Code"] == "NoSuchBucket"
+
+    def test_list_caller_access_grants(self, client):
+        """ListCallerAccessGrants returns CallerAccessGrantsList."""
+        resp = client.list_caller_access_grants(AccountId=self.ACCOUNT_ID)
+        assert "CallerAccessGrantsList" in resp

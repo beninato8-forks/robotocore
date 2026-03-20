@@ -1747,3 +1747,64 @@ class TestOpenSearchNewStubOps:
             setAsDefault=True,
         )
         assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestOpenSearchNewGapOps:
+    """Tests for newly covered OpenSearch gap operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("opensearch")
+
+    @pytest.fixture
+    def domain(self, client):
+        name = _unique_domain()
+        client.create_domain(DomainName=name)
+        yield name
+        client.delete_domain(DomainName=name)
+
+    def test_add_and_update_direct_query_data_source(self, client):
+        """AddDirectQueryDataSource and UpdateDirectQueryDataSource work."""
+        resp = client.add_direct_query_data_source(
+            DataSourceName="dss",
+            DataSourceType={
+                "CloudWatchLog": {"RoleArn": "arn:aws:iam::123456789012:role/test-role-abc"}
+            },
+            OpenSearchArns=["arn:aws:es:us-east-1:123456789012:domain/test-domain"],
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        resp2 = client.update_direct_query_data_source(
+            DataSourceName="dss",
+            DataSourceType={
+                "CloudWatchLog": {"RoleArn": "arn:aws:iam::123456789012:role/test-role-abc"}
+            },
+            OpenSearchArns=["arn:aws:es:us-east-1:123456789012:domain/test-domain"],
+        )
+        assert resp2["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_associate_and_dissociate_packages(self, client, domain):
+        """AssociatePackages and DissociatePackages return 200."""
+        resp = client.associate_packages(
+            PackageList=[{"PackageID": "F12345", "PrerequisitePackageIDList": []}],
+            DomainName=domain,
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        resp2 = client.dissociate_packages(
+            PackageList=["F12345"],
+            DomainName=domain,
+        )
+        assert resp2["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_create_and_delete_index(self, client, domain):
+        """CreateIndex, UpdateIndex, DeleteIndex all return 200."""
+        client.create_index(DomainName=domain, IndexName="idx1", IndexSchema="{}")
+        client.update_index(DomainName=domain, IndexName="idx1", IndexSchema="{}")
+        resp = client.delete_index(DomainName=domain, IndexName="idx1")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_update_package_scope(self, client):
+        """UpdatePackageScope returns 200."""
+        resp = client.update_package_scope(
+            PackageID="F12345", Operation="ADD", PackageUserList=["123456789012"]
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200

@@ -1872,3 +1872,81 @@ class TestDSNewStubOps:
         """UpdateTrust returns TrustId."""
         resp = ds.update_trust(TrustId="t-fake12345678")
         assert "TrustId" in resp
+
+
+class TestDSHybridADAndRegionOps:
+    """Tests for DS gap operations: AddRegion, RemoveRegion, ShareDirectory, UnshareDirectory,
+    DeleteADAssessment, EnableCAEnrollmentPolicy, CreateHybridAD, DescribeHybridADUpdate,
+    UpdateHybridAD."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("ds")
+
+    def test_add_region_nonexistent(self, client):
+        """AddRegion raises EntityDoesNotExistException for a nonexistent directory."""
+        with pytest.raises(ClientError) as exc:
+            client.add_region(
+                DirectoryId="d-1234567890",
+                RegionName="us-west-2",
+                VPCSettings={"VpcId": "vpc-12345678", "SubnetIds": ["subnet-12345678"]},
+            )
+        assert exc.value.response["Error"]["Code"] == "EntityDoesNotExistException"
+
+    def test_remove_region_nonexistent(self, client):
+        """RemoveRegion raises EntityDoesNotExistException for a nonexistent directory."""
+        with pytest.raises(ClientError) as exc:
+            client.remove_region(DirectoryId="d-1234567890")
+        assert exc.value.response["Error"]["Code"] == "EntityDoesNotExistException"
+
+    def test_share_directory_nonexistent(self, client):
+        """ShareDirectory raises EntityDoesNotExistException for a nonexistent directory."""
+        with pytest.raises(ClientError) as exc:
+            client.share_directory(
+                DirectoryId="d-1234567890",
+                ShareTarget={"Id": "123456789012", "Type": "ACCOUNT"},
+                ShareMethod="HANDSHAKE",
+            )
+        assert exc.value.response["Error"]["Code"] == "EntityDoesNotExistException"
+
+    def test_unshare_directory_nonexistent(self, client):
+        """UnshareDirectory raises EntityDoesNotExistException for a nonexistent directory."""
+        with pytest.raises(ClientError) as exc:
+            client.unshare_directory(
+                DirectoryId="d-1234567890",
+                UnshareTarget={"Id": "123456789012", "Type": "ACCOUNT"},
+            )
+        assert exc.value.response["Error"]["Code"] == "EntityDoesNotExistException"
+
+    def test_delete_ad_assessment_nonexistent(self, client):
+        """DeleteADAssessment raises EntityDoesNotExistException."""
+        with pytest.raises(ClientError) as exc:
+            client.delete_ad_assessment(AssessmentId="a-1234567890")
+        assert exc.value.response["Error"]["Code"] == "EntityDoesNotExistException"
+
+    def test_enable_ca_enrollment_policy_nonexistent(self, client):
+        """EnableCAEnrollmentPolicy raises EntityDoesNotExistException for nonexistent directory."""
+        with pytest.raises(ClientError) as exc:
+            client.enable_ca_enrollment_policy(
+                DirectoryId="d-1234567890",
+                PcaConnectorArn="arn:aws:acm-pca:us-east-1:123456789012:certificate-authority/test",
+            )
+        assert exc.value.response["Error"]["Code"] == "EntityDoesNotExistException"
+
+    def test_create_hybrid_ad(self, client):
+        """CreateHybridAD stub returns DirectoryId."""
+        resp = client.create_hybrid_ad(
+            SecretArn="arn:aws:secretsmanager:us-east-1:123456789012:secret/test-secret",
+            AssessmentId="a-1234567890",
+        )
+        assert "DirectoryId" in resp
+
+    def test_describe_hybrid_ad_update(self, client):
+        """DescribeHybridADUpdate stub returns 200."""
+        resp = client.describe_hybrid_ad_update(DirectoryId="d-1234567890")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_update_hybrid_ad(self, client):
+        """UpdateHybridAD stub returns 200."""
+        resp = client.update_hybrid_ad(DirectoryId="d-1234567890")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
