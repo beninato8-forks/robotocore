@@ -1863,3 +1863,12 @@ class TestDSGapOpsV2:
             "EntityDoesNotExistException",
             "ValidationException",
         )
+
+
+class TestDSNewStubOps:
+    """Tests for newly added DS stub operations."""
+
+    def test_update_trust(self, ds):
+        """UpdateTrust returns TrustId."""
+        resp = ds.update_trust(TrustId="t-fake12345678")
+        assert "TrustId" in resp

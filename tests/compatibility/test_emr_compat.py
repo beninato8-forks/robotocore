@@ -1242,3 +1242,56 @@ class TestEMRMissingGapOps:
         )
         assert "Credentials" in resp
         assert "ExpiresAt" in resp
+
+
+class TestEMRPersistentAppUI:
+    """Tests for EMR PersistentAppUI and related operations."""
+
+    def test_create_persistent_app_ui(self, emr):
+        """CreatePersistentAppUI returns a PersistentAppUIId."""
+        resp = emr.create_persistent_app_ui(
+            TargetResourceArn="arn:aws:emr:us-east-1:123456789012:cluster/j-FAKE123"
+        )
+        assert "PersistentAppUIId" in resp
+        assert resp["PersistentAppUIId"]
+
+    def test_describe_persistent_app_ui(self, emr):
+        """DescribePersistentAppUI returns PersistentAppUI for a created UI."""
+        create_resp = emr.create_persistent_app_ui(
+            TargetResourceArn="arn:aws:emr:us-east-1:123456789012:cluster/j-FAKE123"
+        )
+        ui_id = create_resp["PersistentAppUIId"]
+        desc_resp = emr.describe_persistent_app_ui(PersistentAppUIId=ui_id)
+        assert "PersistentAppUI" in desc_resp
+
+    def test_describe_persistent_app_ui_nonexistent(self, emr):
+        """DescribePersistentAppUI raises for a nonexistent PersistentAppUIId."""
+        with pytest.raises(ClientError) as exc:
+            emr.describe_persistent_app_ui(PersistentAppUIId="nonexistent-id-xyz")
+        assert exc.value.response["Error"]["Code"] == "InvalidRequestException"
+
+    def test_get_persistent_app_ui_presigned_url(self, emr):
+        """GetPersistentAppUIPresignedURL returns 200 for a created UI."""
+        create_resp = emr.create_persistent_app_ui(
+            TargetResourceArn="arn:aws:emr:us-east-1:123456789012:cluster/j-FAKE123"
+        )
+        ui_id = create_resp["PersistentAppUIId"]
+        resp = emr.get_persistent_app_ui_presigned_url(PersistentAppUIId=ui_id)
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_get_on_cluster_app_ui_presigned_url(self, emr):
+        """GetOnClusterAppUIPresignedURL returns 200."""
+        resp = emr.get_on_cluster_app_ui_presigned_url(
+            ClusterId="j-FAKE123",
+            OnClusterAppUIType="SPARK_HISTORY_SERVER",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_start_notebook_execution(self, emr):
+        """StartNotebookExecution returns a NotebookExecutionId."""
+        resp = emr.start_notebook_execution(
+            ExecutionEngine={"Id": "j-FAKE123", "Type": "EMR"},
+            ServiceRole="arn:aws:iam::123456789012:role/EMR_Notebooks_DefaultRole",
+        )
+        assert "NotebookExecutionId" in resp
+        assert resp["NotebookExecutionId"]

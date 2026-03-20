@@ -823,3 +823,70 @@ class TestFSxGapOps:
         """StartMisconfiguredStateRecovery returns 200 for any filesystem ID."""
         resp = client.start_misconfigured_state_recovery(FileSystemId="fs-0123456789abcdef0")
         assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestFSxNewStubOps:
+    """Tests for newly stubbed FSx operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("fsx")
+
+    def test_cancel_data_repository_task(self, client):
+        """CancelDataRepositoryTask returns Lifecycle and TaskId for a task ID."""
+        resp = client.cancel_data_repository_task(TaskId="drt-0123456789abcdef0")
+        assert "Lifecycle" in resp
+        assert "TaskId" in resp
+
+    def test_copy_backup(self, client):
+        """CopyBackup returns a Backup object for a source backup ID."""
+        resp = client.copy_backup(SourceBackupId="backup-0123456789abcdef0")
+        assert "Backup" in resp
+
+    def test_copy_snapshot_and_update_volume(self, client):
+        """CopySnapshotAndUpdateVolume returns VolumeId."""
+        resp = client.copy_snapshot_and_update_volume(
+            VolumeId="fsvol-0123456789abcdef0",
+            SourceSnapshotARN="arn:aws:fsx:us-east-1:123456789012:snapshot:fssnap-0123456789abcdef0",
+        )
+        assert "VolumeId" in resp
+
+    def test_create_and_attach_s3_access_point(self, client):
+        """CreateAndAttachS3AccessPoint returns HTTP 200."""
+        resp = client.create_and_attach_s3_access_point(Name="test-ap-stub", Type="OPENZFS")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_create_data_repository_task(self, client):
+        """CreateDataRepositoryTask returns a DataRepositoryTask object."""
+        resp = client.create_data_repository_task(
+            Type="EXPORT_TO_REPOSITORY",
+            FileSystemId="fs-0123456789abcdef0",
+            Report={"Enabled": False},
+        )
+        assert "DataRepositoryTask" in resp
+
+    def test_create_file_cache(self, client):
+        """CreateFileCache returns a FileCache object."""
+        resp = client.create_file_cache(
+            FileCacheType="LUSTRE",
+            FileCacheTypeVersion="2.12",
+            StorageCapacity=1200,
+            SubnetIds=["subnet-00000001"],
+        )
+        assert "FileCache" in resp
+
+    def test_delete_file_cache(self, client):
+        """DeleteFileCache returns FileCacheId and Lifecycle."""
+        resp = client.delete_file_cache(FileCacheId="fc-0123456789abcdef0")
+        assert "FileCacheId" in resp
+        assert "Lifecycle" in resp
+
+    def test_detach_and_delete_s3_access_point(self, client):
+        """DetachAndDeleteS3AccessPoint returns HTTP 200."""
+        resp = client.detach_and_delete_s3_access_point(Name="test-ap-stub")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_update_file_cache(self, client):
+        """UpdateFileCache returns a FileCache object."""
+        resp = client.update_file_cache(FileCacheId="fc-0123456789abcdef0")
+        assert "FileCache" in resp

@@ -1232,3 +1232,29 @@ class TestLakeFormationNewStubOps:
             ],
         )
         assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestLakeFormationGapOps2:
+    """Tests for second batch of newly-working lakeformation gap operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("lakeformation")
+
+    def test_delete_objects_on_cancel(self, client):
+        """DeleteObjectsOnCancel succeeds and returns 200."""
+        resp = client.delete_objects_on_cancel(
+            DatabaseName="test-db",
+            TableName="test-table",
+            TransactionId="fake-txn-id-001",
+            Objects=[{"Uri": "s3://my-bucket/data/file.parquet", "ETag": "etag123"}],
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_update_resource(self, client):
+        """UpdateResource succeeds and returns 200."""
+        resp = client.update_resource(
+            RoleArn="arn:aws:iam::123456789012:role/lakeformation-role",
+            ResourceArn="arn:aws:s3:::my-lakeformation-bucket",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200

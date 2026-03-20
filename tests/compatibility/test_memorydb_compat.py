@@ -503,3 +503,60 @@ class TestMemoryDBNewStubOps:
             ReservedNodesOfferingId="fake-offering-id-xyz",
         )
         assert "ReservedNode" in resp
+
+
+class TestMemoryDBNewStubMultiRegion:
+    """Tests for newly stubbed MemoryDB multi-region operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("memorydb")
+
+    def test_create_multi_region_cluster(self, client):
+        """CreateMultiRegionCluster returns a MultiRegionCluster object."""
+        resp = client.create_multi_region_cluster(
+            MultiRegionClusterNameSuffix="testcluster-stub",
+            NodeType="db.r6g.large",
+        )
+        assert "MultiRegionCluster" in resp
+
+    def test_describe_multi_region_clusters_empty(self, client):
+        """DescribeMultiRegionClusters returns a list."""
+        resp = client.describe_multi_region_clusters()
+        assert "MultiRegionClusters" in resp
+        assert isinstance(resp["MultiRegionClusters"], list)
+
+    def test_delete_multi_region_cluster(self, client):
+        """DeleteMultiRegionCluster returns a MultiRegionCluster object."""
+        resp = client.delete_multi_region_cluster(MultiRegionClusterName="nonexistent-cluster-xyz")
+        assert "MultiRegionCluster" in resp
+
+    def test_describe_multi_region_parameter_groups(self, client):
+        """DescribeMultiRegionParameterGroups returns a list."""
+        resp = client.describe_multi_region_parameter_groups()
+        assert "MultiRegionParameterGroups" in resp
+        assert isinstance(resp["MultiRegionParameterGroups"], list)
+
+    def test_describe_multi_region_parameters(self, client):
+        """DescribeMultiRegionParameters returns HTTP 200."""
+        resp = client.describe_multi_region_parameters(
+            MultiRegionParameterGroupName="nonexistent-pg-xyz"
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_failover_shard(self, client):
+        """FailoverShard returns a Cluster object."""
+        resp = client.failover_shard(ClusterName="nonexistent-cluster-xyz", ShardName="0001")
+        assert "Cluster" in resp
+
+    def test_list_allowed_multi_region_cluster_updates(self, client):
+        """ListAllowedMultiRegionClusterUpdates returns HTTP 200."""
+        resp = client.list_allowed_multi_region_cluster_updates(
+            MultiRegionClusterName="nonexistent-cluster-xyz"
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_update_multi_region_cluster(self, client):
+        """UpdateMultiRegionCluster returns a MultiRegionCluster object."""
+        resp = client.update_multi_region_cluster(MultiRegionClusterName="nonexistent-cluster-xyz")
+        assert "MultiRegionCluster" in resp
