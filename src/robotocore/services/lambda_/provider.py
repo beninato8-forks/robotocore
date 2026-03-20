@@ -419,7 +419,7 @@ def _handle_recursion_config(
     func_name: str, method: str, body: bytes, region: str, account_id: str
 ) -> Response:
     """Handle GET/PUT for function recursion config."""
-    from moto.backends import get_backend
+    from moto.backends import get_backend  # noqa: I001
 
     backend = get_backend("lambda")[account_id][region]
     # Verify function exists

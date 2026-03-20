@@ -542,7 +542,7 @@ class EventSourceEngine:
         """Invoke Lambda and return (success, result)."""
         import base64  # noqa: I001
 
-        from moto.backends import get_backend
+        from moto.backends import get_backend  # noqa: I001
         from moto.core import DEFAULT_ACCOUNT_ID
 
         try:
