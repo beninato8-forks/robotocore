@@ -1304,3 +1304,59 @@ class TestELBV2TrustStoreGapOps:
             assert "Location" in resp
         finally:
             client.delete_trust_store(TrustStoreArn=arn)
+
+
+class TestELBV2GapOpsV2:
+    """Tests for elbv2 ops that were implemented but not directly called."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("elbv2")
+
+    @pytest.fixture
+    def trust_store(self, client):
+        ts = client.create_trust_store(
+            Name="test-ts-ops-v2",
+            CaCertificatesBundleS3Bucket="test-bucket",
+            CaCertificatesBundleS3Key="ca.pem",
+        )
+        arn = ts["TrustStores"][0]["TrustStoreArn"]
+        yield arn
+        try:
+            client.delete_trust_store(TrustStoreArn=arn)
+        except Exception:
+            pass
+
+    def test_add_trust_store_revocations(self, client, trust_store):
+        """AddTrustStoreRevocations succeeds with empty list."""
+        resp = client.add_trust_store_revocations(TrustStoreArn=trust_store, RevocationContents=[])
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_remove_trust_store_revocations(self, client, trust_store):
+        """RemoveTrustStoreRevocations succeeds with nonexistent revocation ID."""
+        resp = client.remove_trust_store_revocations(TrustStoreArn=trust_store, RevocationIds=[999])
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_modify_trust_store(self, client, trust_store):
+        """ModifyTrustStore updates the CA bundle location."""
+        resp = client.modify_trust_store(
+            TrustStoreArn=trust_store,
+            CaCertificatesBundleS3Bucket="updated-bucket",
+            CaCertificatesBundleS3Key="updated.pem",
+        )
+        assert "TrustStores" in resp
+
+    def test_delete_shared_trust_store_association(self, client, trust_store):
+        """DeleteSharedTrustStoreAssociation returns 200."""
+        resp = client.delete_shared_trust_store_association(
+            TrustStoreArn=trust_store,
+            ResourceArn="arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/test/abc123",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_modify_ip_pools(self, client):
+        """ModifyIpPools returns 200 for any load balancer ARN."""
+        resp = client.modify_ip_pools(
+            LoadBalancerArn="arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/test/abc123"
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200

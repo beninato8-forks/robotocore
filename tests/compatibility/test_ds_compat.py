@@ -1772,3 +1772,94 @@ class TestDSGapOps:
             "ValidationException",
             "EntityDoesNotExistException",
         )
+
+
+class TestDSGapOpsV2:
+    """Tests for ds operations that were crashing but are now implemented."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("ds")
+
+    def test_list_ad_assessments(self, client):
+        """ListADAssessments returns a list (possibly empty)."""
+        resp = client.list_ad_assessments()
+        assert "Assessments" in resp
+        assert isinstance(resp["Assessments"], list)
+
+    def test_enable_directory_data_access_nonexistent(self, client):
+        """EnableDirectoryDataAccess raises EntityDoesNotExistException for nonexistent dir."""
+        from botocore.exceptions import ClientError as BotoClientError
+
+        with pytest.raises(BotoClientError) as exc:
+            client.enable_directory_data_access(DirectoryId="d-0000000000")
+        assert exc.value.response["Error"]["Code"] in (
+            "EntityDoesNotExistException",
+            "ValidationException",
+        )
+
+    def test_disable_directory_data_access_nonexistent(self, client):
+        """DisableDirectoryDataAccess raises EntityDoesNotExistException for nonexistent dir."""
+        from botocore.exceptions import ClientError as BotoClientError
+
+        with pytest.raises(BotoClientError) as exc:
+            client.disable_directory_data_access(DirectoryId="d-0000000000")
+        assert exc.value.response["Error"]["Code"] in (
+            "EntityDoesNotExistException",
+            "ValidationException",
+        )
+
+    def test_describe_directory_data_access_nonexistent(self, client):
+        """DescribeDirectoryDataAccess raises EntityDoesNotExistException for nonexistent dir."""
+        from botocore.exceptions import ClientError as BotoClientError
+
+        with pytest.raises(BotoClientError) as exc:
+            client.describe_directory_data_access(DirectoryId="d-0000000000")
+        assert exc.value.response["Error"]["Code"] in (
+            "EntityDoesNotExistException",
+            "ValidationException",
+        )
+
+    def test_disable_ca_enrollment_policy_nonexistent(self, client):
+        """DisableCAEnrollmentPolicy raises EntityDoesNotExistException for nonexistent dir."""
+        from botocore.exceptions import ClientError as BotoClientError
+
+        with pytest.raises(BotoClientError) as exc:
+            client.disable_ca_enrollment_policy(DirectoryId="d-0000000000")
+        assert exc.value.response["Error"]["Code"] in (
+            "EntityDoesNotExistException",
+            "ValidationException",
+        )
+
+    def test_start_ad_assessment_nonexistent(self, client):
+        """StartADAssessment raises EntityDoesNotExistException for nonexistent dir."""
+        from botocore.exceptions import ClientError as BotoClientError
+
+        with pytest.raises(BotoClientError) as exc:
+            client.start_ad_assessment(DirectoryId="d-0000000000")
+        assert exc.value.response["Error"]["Code"] in (
+            "EntityDoesNotExistException",
+            "ValidationException",
+        )
+
+    def test_update_directory_setup_nonexistent(self, client):
+        """UpdateDirectorySetup raises EntityDoesNotExistException for nonexistent dir."""
+        from botocore.exceptions import ClientError as BotoClientError
+
+        with pytest.raises(BotoClientError) as exc:
+            client.update_directory_setup(DirectoryId="d-0000000000", UpdateType="OS")
+        assert exc.value.response["Error"]["Code"] in (
+            "EntityDoesNotExistException",
+            "ValidationException",
+        )
+
+    def test_update_number_of_domain_controllers_nonexistent(self, client):
+        """UpdateNumberOfDomainControllers raises EntityDoesNotExistException."""
+        from botocore.exceptions import ClientError as BotoClientError
+
+        with pytest.raises(BotoClientError) as exc:
+            client.update_number_of_domain_controllers(DirectoryId="d-0000000000", DesiredNumber=2)
+        assert exc.value.response["Error"]["Code"] in (
+            "EntityDoesNotExistException",
+            "ValidationException",
+        )

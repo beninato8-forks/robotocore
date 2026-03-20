@@ -444,3 +444,35 @@ class TestPanoramaGapOps:
             assert "env" not in tags_resp.get("Tags", {})
         finally:
             client.delete_device(DeviceId=device_id)
+
+
+class TestPanoramaGapOpsV2:
+    """Tests for panorama describe/list ops that weren't directly called."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("panorama")
+
+    def test_describe_device_job_nonexistent(self, client):
+        """DescribeDeviceJob raises ResourceNotFoundException for nonexistent job."""
+        with pytest.raises(ClientError) as exc:
+            client.describe_device_job(JobId="job-nonexistent-123")
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_describe_package_version_nonexistent(self, client):
+        """DescribePackageVersion raises ResourceNotFoundException for nonexistent version."""
+        with pytest.raises(ClientError) as exc:
+            client.describe_package_version(
+                PackageId="pkg-nonexistent-123",
+                PackageVersion="1.0.0",
+                PatchVersion="0",
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_list_application_instance_node_instances(self, client):
+        """ListApplicationInstanceNodeInstances raises ResourceNotFoundException."""
+        with pytest.raises(ClientError) as exc:
+            client.list_application_instance_node_instances(
+                ApplicationInstanceId="ai-nonexistent-123"
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"

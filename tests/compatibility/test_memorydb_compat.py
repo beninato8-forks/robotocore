@@ -447,3 +447,59 @@ class TestMemoryDBGapOps:
             "TagResourceFault",
             "TagNotFoundFault",
         )
+
+
+class TestMemoryDBNewStubOps:
+    """Tests for newly-implemented memorydb stub operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("memorydb")
+
+    def test_copy_snapshot_nonexistent(self, client):
+        """CopySnapshot raises SnapshotNotFoundFault for nonexistent source."""
+        with pytest.raises(ClientError) as exc:
+            client.copy_snapshot(
+                SourceSnapshotName="nonexistent-snapshot-xyz",
+                TargetSnapshotName="target-snapshot-xyz",
+            )
+        assert exc.value.response["Error"]["Code"] == "SnapshotNotFoundFault"
+
+    def test_update_subnet_group_nonexistent(self, client):
+        """UpdateSubnetGroup raises SubnetGroupNotFoundFault for nonexistent group."""
+        with pytest.raises(ClientError) as exc:
+            client.update_subnet_group(SubnetGroupName="nonexistent-sg-xyz")
+        assert exc.value.response["Error"]["Code"] == "SubnetGroupNotFoundFault"
+
+    def test_reset_parameter_group_nonexistent(self, client):
+        """ResetParameterGroup raises ParameterGroupNotFoundFault for nonexistent group."""
+        with pytest.raises(ClientError) as exc:
+            client.reset_parameter_group(ParameterGroupName="nonexistent-pg-xyz")
+        assert exc.value.response["Error"]["Code"] == "ParameterGroupNotFoundFault"
+
+    def test_describe_parameters_nonexistent(self, client):
+        """DescribeParameters raises ParameterGroupNotFoundFault for nonexistent group."""
+        with pytest.raises(ClientError) as exc:
+            client.describe_parameters(ParameterGroupName="nonexistent-pg-xyz")
+        assert exc.value.response["Error"]["Code"] == "ParameterGroupNotFoundFault"
+
+    def test_list_allowed_node_type_updates_nonexistent(self, client):
+        """ListAllowedNodeTypeUpdates raises ClusterNotFoundFault for nonexistent cluster."""
+        with pytest.raises(ClientError) as exc:
+            client.list_allowed_node_type_updates(ClusterName="nonexistent-cluster-xyz")
+        assert exc.value.response["Error"]["Code"] == "ClusterNotFoundFault"
+
+    def test_batch_update_cluster(self, client):
+        """BatchUpdateCluster with nonexistent clusters returns them as unprocessed."""
+        resp = client.batch_update_cluster(
+            ClusterNames=["nonexistent-cluster-1", "nonexistent-cluster-2"],
+        )
+        assert "ProcessedClusters" in resp
+        assert "UnprocessedClusters" in resp
+
+    def test_purchase_reserved_nodes_offering(self, client):
+        """PurchaseReservedNodesOffering with a fake offering ID returns a ReservedNode."""
+        resp = client.purchase_reserved_nodes_offering(
+            ReservedNodesOfferingId="fake-offering-id-xyz",
+        )
+        assert "ReservedNode" in resp
