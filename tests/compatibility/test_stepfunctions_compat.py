@@ -1460,3 +1460,22 @@ class TestStepFunctionsSyncExecution:
             assert resp["stopDate"] >= resp["startDate"]
         finally:
             sfn.delete_state_machine(stateMachineArn=sm_arn)
+
+
+class TestStepFunctionsAliases:
+    """Tests for StateMachineAlias operations."""
+
+    def test_list_state_machine_aliases(self, sfn):
+        """ListStateMachineAliases returns aliases list for a state machine."""
+        fake_arn = "arn:aws:states:us-east-1:123456789012:stateMachine:nonexistent"
+        resp = sfn.list_state_machine_aliases(stateMachineArn=fake_arn)
+        assert "stateMachineAliases" in resp
+
+    def test_describe_state_machine_alias_nonexistent(self, sfn):
+        """DescribeStateMachineAlias with nonexistent ARN raises ResourceNotFound."""
+        from botocore.exceptions import ClientError
+
+        fake_arn = "arn:aws:states:us-east-1:123456789012:stateMachine:fake:alias"
+        with pytest.raises(ClientError) as exc_info:
+            sfn.describe_state_machine_alias(stateMachineAliasArn=fake_arn)
+        assert exc_info.value.response["Error"]["Code"] == "ResourceNotFound"

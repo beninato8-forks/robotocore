@@ -826,3 +826,19 @@ class TestOpenSearchServerlessUpdates:
                 client.delete_vpc_endpoint(id=vpce_id)
             except ClientError:
                 pass  # best-effort cleanup
+
+
+class TestOpenSearchServerlessIndex:
+    """Tests for OpenSearch Serverless Index operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("opensearchserverless")
+
+    def test_get_index_nonexistent(self, client):
+        """GetIndex with nonexistent ID returns ResourceNotFoundException."""
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc:
+            client.get_index(id="nonexistent-collection", indexName="my-index")
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"

@@ -1553,3 +1553,25 @@ class TestCloudWatchGapOps:
         )
         assert "Failures" in resp
         assert len(resp["Failures"]) == 0
+
+
+class TestCloudWatchAlarmMuteRules:
+    """Tests for CloudWatch alarm mute rule operations."""
+
+    def test_describe_alarm_contributors(self, cw):
+        """DescribeAlarmContributors returns AlarmContributors list."""
+        resp = cw.describe_alarm_contributors(AlarmName="nonexistent-alarm")
+        assert "AlarmContributors" in resp
+
+    def test_get_alarm_mute_rule_nonexistent(self, cw):
+        """GetAlarmMuteRule with nonexistent name raises ResourceNotFoundException."""
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc:
+            cw.get_alarm_mute_rule(AlarmMuteRuleName="nonexistent-mute-rule-xyz")
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_list_alarm_mute_rules(self, cw):
+        """ListAlarmMuteRules returns 200."""
+        resp = cw.list_alarm_mute_rules()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200

@@ -2928,3 +2928,171 @@ class TestConnectHierarchyGroupName:
             HierarchyGroupId=hg_id,
         )
         assert resp["HierarchyGroup"]["Name"] == "RenamedGroup"
+
+
+class TestConnectDataTables:
+    """Tests for DataTable operations."""
+
+    @pytest.fixture
+    def instance_id(self, connect):
+        iid, _ = _create_instance(connect)
+        yield iid
+
+    def test_list_data_tables(self, connect, instance_id):
+        resp = connect.list_data_tables(InstanceId=instance_id)
+        assert "DataTableSummaryList" in resp
+
+    def test_describe_data_table_nonexistent(self, connect, instance_id):
+        import uuid
+
+        with pytest.raises(ClientError) as exc_info:
+            connect.describe_data_table(
+                InstanceId=instance_id,
+                DataTableId=str(uuid.uuid4()),
+            )
+        assert exc_info.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_list_data_table_attributes(self, connect, instance_id):
+        import uuid
+
+        resp = connect.list_data_table_attributes(
+            InstanceId=instance_id,
+            DataTableId=str(uuid.uuid4()),
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestConnectNotifications:
+    """Tests for Notification operations."""
+
+    @pytest.fixture
+    def instance_id(self, connect):
+        iid, _ = _create_instance(connect)
+        yield iid
+
+    def test_list_notifications(self, connect, instance_id):
+        resp = connect.list_notifications(InstanceId=instance_id)
+        assert "NotificationSummaryList" in resp
+
+    def test_describe_notification_nonexistent(self, connect, instance_id):
+        import uuid
+
+        with pytest.raises(ClientError) as exc_info:
+            connect.describe_notification(
+                InstanceId=instance_id,
+                NotificationId=str(uuid.uuid4()),
+            )
+        assert exc_info.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+
+class TestConnectTestCases:
+    """Tests for TestCase operations."""
+
+    @pytest.fixture
+    def instance_id(self, connect):
+        iid, _ = _create_instance(connect)
+        yield iid
+
+    def test_list_test_cases(self, connect, instance_id):
+        resp = connect.list_test_cases(InstanceId=instance_id)
+        assert "TestCaseSummaryList" in resp
+
+    def test_describe_test_case_nonexistent(self, connect, instance_id):
+        import uuid
+
+        with pytest.raises(ClientError) as exc_info:
+            connect.describe_test_case(
+                InstanceId=instance_id,
+                TestCaseId=str(uuid.uuid4()),
+            )
+        assert exc_info.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+
+class TestConnectWorkspaces:
+    """Tests for Workspace operations."""
+
+    @pytest.fixture
+    def instance_id(self, connect):
+        iid, _ = _create_instance(connect)
+        yield iid
+
+    def test_list_workspaces(self, connect, instance_id):
+        resp = connect.list_workspaces(InstanceId=instance_id)
+        assert "WorkspaceSummaryList" in resp
+
+    def test_describe_workspace_nonexistent(self, connect, instance_id):
+        import uuid
+
+        with pytest.raises(ClientError) as exc_info:
+            connect.describe_workspace(
+                InstanceId=instance_id,
+                WorkspaceId=str(uuid.uuid4()),
+            )
+        assert exc_info.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+
+class TestConnectContactFlowModuleAliases:
+    """Tests for ContactFlowModuleAlias operations."""
+
+    @pytest.fixture
+    def instance_id(self, connect):
+        iid, _ = _create_instance(connect)
+        yield iid
+
+    def test_list_contact_flow_module_aliases(self, connect, instance_id):
+        import uuid
+
+        resp = connect.list_contact_flow_module_aliases(
+            InstanceId=instance_id,
+            ContactFlowModuleId=str(uuid.uuid4()),
+        )
+        assert "ContactFlowModuleAliasSummaryList" in resp
+
+    def test_describe_contact_flow_module_alias_nonexistent(self, connect, instance_id):
+        import uuid
+
+        with pytest.raises(ClientError) as exc_info:
+            connect.describe_contact_flow_module_alias(
+                InstanceId=instance_id,
+                ContactFlowModuleId=str(uuid.uuid4()),
+                AliasId=str(uuid.uuid4()),
+            )
+        assert exc_info.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+
+class TestConnectContactEvaluations:
+    """Tests for ContactEvaluation describe operation."""
+
+    @pytest.fixture
+    def instance_id(self, connect):
+        iid, _ = _create_instance(connect)
+        yield iid
+
+    def test_describe_contact_evaluation_nonexistent(self, connect, instance_id):
+        import uuid
+
+        with pytest.raises(ClientError) as exc_info:
+            connect.describe_contact_evaluation(
+                InstanceId=instance_id,
+                EvaluationId=str(uuid.uuid4()),
+            )
+        assert exc_info.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+
+class TestConnectEmailAddresses:
+    """Tests for EmailAddress describe operation."""
+
+    @pytest.fixture
+    def instance_id(self, connect):
+        iid, _ = _create_instance(connect)
+        yield iid
+
+    def test_describe_email_address_nonexistent(self, connect, instance_id):
+        import uuid
+
+        with pytest.raises(ClientError) as exc_info:
+            connect.describe_email_address(
+                InstanceId=instance_id,
+                EmailAddressId=str(uuid.uuid4()),
+            )
+        assert exc_info.value.response["Error"]["Code"] == "ResourceNotFoundException"

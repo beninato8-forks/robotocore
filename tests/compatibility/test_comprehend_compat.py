@@ -842,3 +842,46 @@ class TestComprehendJobOps:
         assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
         assert "JobId" in resp
         assert "JobStatus" in resp
+
+
+class TestComprehendBatchOps:
+    """Tests for Comprehend batch detection operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("comprehend")
+
+    def test_batch_detect_dominant_language(self, client):
+        """BatchDetectDominantLanguage returns ResultList and ErrorList."""
+        resp = client.batch_detect_dominant_language(TextList=["Hello world", "Bonjour monde"])
+        assert "ResultList" in resp
+        assert "ErrorList" in resp
+
+    def test_batch_detect_entities(self, client):
+        """BatchDetectEntities returns ResultList and ErrorList."""
+        resp = client.batch_detect_entities(
+            TextList=["John Smith is in New York"], LanguageCode="en"
+        )
+        assert "ResultList" in resp
+        assert "ErrorList" in resp
+
+    def test_batch_detect_key_phrases(self, client):
+        """BatchDetectKeyPhrases returns ResultList and ErrorList."""
+        resp = client.batch_detect_key_phrases(
+            TextList=["AWS is a great cloud provider"], LanguageCode="en"
+        )
+        assert "ResultList" in resp
+        assert "ErrorList" in resp
+
+    def test_batch_detect_sentiment(self, client):
+        """BatchDetectSentiment returns ResultList and ErrorList."""
+        resp = client.batch_detect_sentiment(TextList=["I love this product"], LanguageCode="en")
+        assert "ResultList" in resp
+        assert "ErrorList" in resp
+
+    def test_detect_toxic_content(self, client):
+        """DetectToxicContent returns ResultList."""
+        resp = client.detect_toxic_content(
+            TextSegments=[{"Text": "Hello world"}], LanguageCode="en"
+        )
+        assert "ResultList" in resp

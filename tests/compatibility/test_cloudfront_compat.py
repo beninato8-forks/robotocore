@@ -2713,3 +2713,111 @@ class TestCloudFrontVpcOrigin:
         """DeleteVpcOrigin with nonexistent ID returns 202."""
         resp = cf.delete_vpc_origin(Id="nonexistent-vpc-origin-id", IfMatch="fake-etag")
         assert resp["ResponseMetadata"]["HTTPStatusCode"] == 202
+
+    def test_list_vpc_origins(self, cf):
+        """ListVpcOrigins returns an empty list when none exist."""
+        resp = cf.list_vpc_origins()
+        assert "VpcOriginList" in resp
+
+
+class TestCloudFrontListOperations:
+    """Tests for CloudFront list operations covering new resource types."""
+
+    def test_list_anycast_ip_lists(self, cf):
+        """ListAnycastIpLists returns 200."""
+        resp = cf.list_anycast_ip_lists()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_list_connection_functions(self, cf):
+        """ListConnectionFunctions returns 200."""
+        resp = cf.list_connection_functions()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_list_connection_groups(self, cf):
+        """ListConnectionGroups returns 200."""
+        resp = cf.list_connection_groups()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_list_distribution_tenants(self, cf):
+        """ListDistributionTenants returns 200."""
+        resp = cf.list_distribution_tenants()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_list_domain_conflicts(self, cf):
+        """ListDomainConflicts returns 200."""
+        resp = cf.list_domain_conflicts(Domain="example.com", DomainControlValidationResource={})
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_list_trust_stores(self, cf):
+        """ListTrustStores returns 200."""
+        resp = cf.list_trust_stores()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_list_invalidations_for_distribution_tenant(self, cf):
+        """ListInvalidationsForDistributionTenant returns 200."""
+        resp = cf.list_invalidations_for_distribution_tenant(Id="nonexistent-dt")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_list_distribution_tenants_by_customization(self, cf):
+        """ListDistributionTenantsByCustomization returns 200."""
+        resp = cf.list_distribution_tenants_by_customization(
+            WebACLArn="arn:aws:wafv2:us-east-1:123456789012:global/webacl/test/fake"
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestCloudFrontGetOperations:
+    """Tests for CloudFront get operations on new resource types."""
+
+    def test_get_connection_group_nonexistent(self, cf):
+        """GetConnectionGroup with nonexistent ID returns NoSuchResource."""
+        with pytest.raises(ClientError) as exc_info:
+            cf.get_connection_group(Identifier="nonexistent-cg-id")
+        assert exc_info.value.response["Error"]["Code"] == "NoSuchResource"
+
+    def test_get_connection_group_by_routing_endpoint(self, cf):
+        """GetConnectionGroupByRoutingEndpoint returns ConnectionGroup."""
+        resp = cf.get_connection_group_by_routing_endpoint(RoutingEndpoint="example.cloudfront.net")
+        assert "ConnectionGroup" in resp
+
+    def test_get_distribution_tenant_nonexistent(self, cf):
+        """GetDistributionTenant with nonexistent ID returns NoSuchResource."""
+        with pytest.raises(ClientError) as exc_info:
+            cf.get_distribution_tenant(Identifier="nonexistent-dt-id")
+        assert exc_info.value.response["Error"]["Code"] == "NoSuchResource"
+
+    def test_get_distribution_tenant_by_domain(self, cf):
+        """GetDistributionTenantByDomain returns DistributionTenant."""
+        resp = cf.get_distribution_tenant_by_domain(Domain="example.com")
+        assert "DistributionTenant" in resp
+
+    def test_get_managed_certificate_details(self, cf):
+        """GetManagedCertificateDetails with nonexistent ID returns 200."""
+        resp = cf.get_managed_certificate_details(Identifier="nonexistent")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_get_resource_policy(self, cf):
+        """GetResourcePolicy with nonexistent ARN returns 200."""
+        resp = cf.get_resource_policy(
+            ResourceArn="arn:aws:cloudfront::123456789012:distribution/nonexistent"
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_get_trust_store_nonexistent(self, cf):
+        """GetTrustStore with nonexistent ID returns NoSuchResource."""
+        with pytest.raises(ClientError) as exc_info:
+            cf.get_trust_store(Identifier="nonexistent-ts-id")
+        assert exc_info.value.response["Error"]["Code"] == "NoSuchResource"
+
+    def test_describe_connection_function(self, cf):
+        """DescribeConnectionFunction with nonexistent ID returns NoSuchResource."""
+        with pytest.raises(ClientError) as exc_info:
+            cf.describe_connection_function(Identifier="nonexistent-func", Stage="LIVE")
+        assert exc_info.value.response["Error"]["Code"] in ("NoSuchResource", "NoSuchFunction")
+
+    def test_get_invalidation_for_distribution_tenant(self, cf):
+        """GetInvalidationForDistributionTenant returns Invalidation."""
+        resp = cf.get_invalidation_for_distribution_tenant(
+            DistributionTenantId="nonexistent-dt", Id="nonexistent-inv"
+        )
+        assert "Invalidation" in resp

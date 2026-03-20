@@ -1484,3 +1484,17 @@ class TestSNSSMSOperations:
         resp = sns.list_sms_sandbox_phone_numbers()
         assert "PhoneNumbers" in resp
         assert isinstance(resp["PhoneNumbers"], list)
+
+
+class TestSNSDataProtectionPolicy:
+    """Tests for SNS data protection policy operations."""
+
+    def test_get_data_protection_policy_nonexistent_topic(self, sns):
+        """GetDataProtectionPolicy for nonexistent topic raises NotFound."""
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc:
+            sns.get_data_protection_policy(
+                ResourceArn="arn:aws:sns:us-east-1:123456789012:nonexistent-topic-xyz"
+            )
+        assert exc.value.response["Error"]["Code"] == "NotFound"

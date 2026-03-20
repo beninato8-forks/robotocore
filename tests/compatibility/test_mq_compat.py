@@ -270,3 +270,20 @@ class TestMQErrors:
         with pytest.raises(ClientError) as exc:
             mq.list_users(BrokerId="nonexistent-broker-id")
         assert exc.value.response["Error"]["Code"] == "NotFoundException"
+
+
+class TestMQBrokerEngineTypes:
+    """Tests for MQ broker engine types operations."""
+
+    def test_describe_broker_engine_types(self, mq):
+        """DescribeBrokerEngineTypes returns BrokerEngineTypes list."""
+        resp = mq.describe_broker_engine_types()
+        assert "BrokerEngineTypes" in resp
+
+    def test_list_configuration_revisions_nonexistent(self, mq):
+        """ListConfigurationRevisions with nonexistent config raises NotFoundException."""
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc:
+            mq.list_configuration_revisions(ConfigurationId="nonexistent-config-xyz")
+        assert exc.value.response["Error"]["Code"] == "NotFoundException"

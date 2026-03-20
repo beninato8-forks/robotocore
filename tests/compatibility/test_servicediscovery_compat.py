@@ -424,3 +424,15 @@ class TestServiceDiscoveryDiscoverInstances:
         )
         assert "InstancesRevision" in resp
         assert isinstance(resp["InstancesRevision"], int)
+
+
+class TestServiceDiscoveryServiceAttributes:
+    """Tests for ServiceDiscovery service attributes operations."""
+
+    def test_get_service_attributes_nonexistent(self, sd):
+        """GetServiceAttributes with nonexistent service raises ServiceNotFound."""
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc:
+            sd.get_service_attributes(ServiceId="srv-nonexistent-xyz")
+        assert exc.value.response["Error"]["Code"] == "ServiceNotFound"

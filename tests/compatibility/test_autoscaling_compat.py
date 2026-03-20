@@ -1350,3 +1350,15 @@ class TestAutoScalingTerminateInstance:
         assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
         assert "Activity" in resp
         assert resp["Activity"]["Cause"] is not None
+
+
+class TestAutoScalingTrafficSources:
+    """Tests for AutoScaling Traffic Sources operations."""
+
+    def test_describe_traffic_sources_nonexistent_asg(self, autoscaling):
+        """DescribeTrafficSources with nonexistent ASG raises ValidationError."""
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc:
+            autoscaling.describe_traffic_sources(AutoScalingGroupName="nonexistent-asg-xyz")
+        assert exc.value.response["Error"]["Code"] == "ValidationError"

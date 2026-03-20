@@ -924,3 +924,21 @@ class TestTranscribeDeepCoverage:
         with pytest.raises(ClientError) as exc:
             client.delete_medical_vocabulary(VocabularyName="nonexistent-medvocab-xyz")
         assert exc.value.response["Error"]["Code"] == "BadRequestException"
+
+
+class TestTranscribeMedicalScribeJobs:
+    """Tests for MedicalScribe job operations."""
+
+    def test_list_medical_scribe_jobs(self, transcribe):
+        """ListMedicalScribeJobs returns MedicalScribeJobSummaries."""
+        resp = transcribe.list_medical_scribe_jobs()
+        assert "MedicalScribeJobSummaries" in resp
+
+
+class TestTranscribeVocabularyFilters:
+    """Tests for vocabulary filter list operation."""
+
+    def test_list_vocabulary_filters(self, transcribe):
+        """ListVocabularyFilters returns VocabularyFilters list."""
+        resp = transcribe.list_vocabulary_filters()
+        assert "VocabularyFilters" in resp

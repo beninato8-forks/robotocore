@@ -1820,3 +1820,15 @@ class TestConfigStartRemediationExecution:
                 ResourceKeys=[{"resourceType": "AWS::S3::Bucket", "resourceId": "test-bucket"}],
             )
         assert "NoSuchRemediationConfigurationException" in exc.value.response["Error"]["Code"]
+
+
+class TestConfigAggregatorSourcesStatus:
+    """Tests for DescribeConfigurationAggregatorSourcesStatus."""
+
+    def test_describe_configuration_aggregator_sources_status_nonexistent(self, config):
+        """DescribeConfigurationAggregatorSourcesStatus with nonexistent aggregator raises error."""
+        with pytest.raises(ClientError) as exc:
+            config.describe_configuration_aggregator_sources_status(
+                ConfigurationAggregatorName="nonexistent-aggregator-xyz"
+            )
+        assert exc.value.response["Error"]["Code"] == "NoSuchConfigurationAggregatorException"

@@ -594,3 +594,13 @@ class TestXRayInsightOperations:
                 EndTime=now,
             )
         assert exc.value.response["Error"]["Code"] == "InvalidRequestException"
+
+
+class TestXRayTraceSegmentDestination:
+    """Tests for TraceSegmentDestination operations."""
+
+    def test_get_trace_segment_destination(self, xray):
+        """GetTraceSegmentDestination returns Destination and Status."""
+        resp = xray.get_trace_segment_destination()
+        assert "Destination" in resp
+        assert "Status" in resp
