@@ -94,6 +94,7 @@ def _write_to_s3(bucket: str, key: str, data: bytes, region: str) -> None:
     """Write data to S3 using Moto's backend directly."""
     try:
         from moto.backends import get_backend
+
         from moto.core import DEFAULT_ACCOUNT_ID
 
         s3_backend = get_backend("s3")[DEFAULT_ACCOUNT_ID]["global"]

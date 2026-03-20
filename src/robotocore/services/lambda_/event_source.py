@@ -543,6 +543,7 @@ class EventSourceEngine:
         import base64
 
         from moto.backends import get_backend
+
         from moto.core import DEFAULT_ACCOUNT_ID
 
         try:

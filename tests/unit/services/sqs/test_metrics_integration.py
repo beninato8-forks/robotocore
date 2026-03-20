@@ -9,8 +9,8 @@ import hashlib
 from unittest.mock import patch
 
 import pytest
-from moto import mock_aws
 
+from moto import mock_aws
 from robotocore.services.sqs.metrics import (
     SqsMetricsPublisher,
     _counter_lock,
