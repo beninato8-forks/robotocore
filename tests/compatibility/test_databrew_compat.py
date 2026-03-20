@@ -607,3 +607,120 @@ class TestDataBrewSchedules:
     def test_describe_schedule_not_found(self, databrew_client):
         with pytest.raises(databrew_client.exceptions.ResourceNotFoundException):
             databrew_client.describe_schedule(Name="nonexistent-schedule-xyz")
+
+
+class TestDataBrewNewOps:
+    """Tests for newly implemented DataBrew operations."""
+
+    @pytest.fixture
+    def dataset_name(self, databrew_client):
+        name = f"ds-{uuid.uuid4().hex[:8]}"
+        databrew_client.create_dataset(
+            Name=name,
+            Input={"S3InputDefinition": {"Bucket": "my-bucket", "Key": "data.csv"}},
+        )
+        yield name
+        try:
+            databrew_client.delete_dataset(Name=name)
+        except Exception:
+            pass  # best-effort cleanup
+
+    @pytest.fixture
+    def profile_job_name(self, databrew_client, dataset_name):
+        name = f"pjob-{uuid.uuid4().hex[:8]}"
+        databrew_client.create_profile_job(
+            Name=name,
+            DatasetName=dataset_name,
+            OutputLocation={"Bucket": "my-bucket"},
+            RoleArn="arn:aws:iam::123456789012:role/test-role",
+        )
+        yield name
+        try:
+            databrew_client.delete_job(Name=name)
+        except Exception:
+            pass  # best-effort cleanup
+
+    @pytest.fixture
+    def project_name(self, databrew_client, dataset_name):
+        recipe = f"recipe-{uuid.uuid4().hex[:8]}"
+        databrew_client.create_recipe(Name=recipe, Steps=[])
+        name = f"proj-{uuid.uuid4().hex[:8]}"
+        databrew_client.create_project(
+            Name=name,
+            DatasetName=dataset_name,
+            RecipeName=recipe,
+            RoleArn="arn:aws:iam::123456789012:role/test-role",
+        )
+        yield name
+        try:
+            databrew_client.delete_project(Name=name)
+        except Exception:
+            pass  # best-effort cleanup
+
+    def test_tag_resource(self, databrew_client, dataset_name):
+        arn = f"arn:aws:databrew:us-east-1:123456789012:dataset/{dataset_name}"
+        resp = databrew_client.tag_resource(ResourceArn=arn, Tags={"Env": "test"})
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_list_tags_for_resource(self, databrew_client, dataset_name):
+        arn = f"arn:aws:databrew:us-east-1:123456789012:dataset/{dataset_name}"
+        databrew_client.tag_resource(ResourceArn=arn, Tags={"Env": "prod", "Team": "data"})
+        resp = databrew_client.list_tags_for_resource(ResourceArn=arn)
+        assert "Tags" in resp
+        assert resp["Tags"]["Env"] == "prod"
+        assert resp["Tags"]["Team"] == "data"
+
+    def test_untag_resource(self, databrew_client, dataset_name):
+        arn = f"arn:aws:databrew:us-east-1:123456789012:dataset/{dataset_name}"
+        databrew_client.tag_resource(ResourceArn=arn, Tags={"Key1": "v1", "Key2": "v2"})
+        databrew_client.untag_resource(ResourceArn=arn, TagKeys=["Key1"])
+        resp = databrew_client.list_tags_for_resource(ResourceArn=arn)
+        assert "Key1" not in resp["Tags"]
+        assert resp["Tags"].get("Key2") == "v2"
+
+    def test_start_job_run(self, databrew_client, profile_job_name):
+        resp = databrew_client.start_job_run(Name=profile_job_name)
+        assert "RunId" in resp
+        assert len(resp["RunId"]) > 0
+
+    def test_list_job_runs(self, databrew_client, profile_job_name):
+        databrew_client.start_job_run(Name=profile_job_name)
+        resp = databrew_client.list_job_runs(Name=profile_job_name)
+        assert "JobRuns" in resp
+        assert len(resp["JobRuns"]) >= 1
+        assert resp["JobRuns"][0]["State"] == "RUNNING"
+
+    def test_describe_job_run(self, databrew_client, profile_job_name):
+        start_resp = databrew_client.start_job_run(Name=profile_job_name)
+        run_id = start_resp["RunId"]
+        resp = databrew_client.describe_job_run(Name=profile_job_name, RunId=run_id)
+        assert resp["RunId"] == run_id
+        assert resp["State"] == "RUNNING"
+
+    def test_stop_job_run(self, databrew_client, profile_job_name):
+        start_resp = databrew_client.start_job_run(Name=profile_job_name)
+        run_id = start_resp["RunId"]
+        resp = databrew_client.stop_job_run(Name=profile_job_name, RunId=run_id)
+        assert resp["RunId"] == run_id
+
+    def test_batch_delete_recipe_version(self, databrew_client):
+        name = f"recipe-{uuid.uuid4().hex[:8]}"
+        databrew_client.create_recipe(Name=name, Steps=[])
+        databrew_client.publish_recipe(Name=name)
+        databrew_client.publish_recipe(Name=name)
+        resp = databrew_client.batch_delete_recipe_version(Name=name, RecipeVersions=["1.0", "2.0"])
+        assert "Errors" in resp
+        assert len(resp["Errors"]) == 0
+
+    def test_start_project_session(self, databrew_client, project_name):
+        resp = databrew_client.start_project_session(Name=project_name)
+        assert resp["Name"] == project_name
+        assert "ClientSessionId" in resp
+
+    def test_send_project_session_action(self, databrew_client, project_name):
+        resp = databrew_client.send_project_session_action(
+            Name=project_name,
+            Preview=True,
+        )
+        assert resp["Name"] == project_name
+        assert "ActionId" in resp
