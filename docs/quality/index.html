@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Quality Dashboard</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+        .header .timestamp {
+            color: #888;
+            font-size: 0.9rem;
+        }
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .card {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+        .card-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #00d4ff;
+        }
+        .card-label {
+            font-size: 0.9rem;
+            color: #888;
+            margin-top: 5px;
+        }
+        .section {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .section h2 {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            color: #00d4ff;
+        }
+        .service-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+        }
+        .service-card {
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            color: #000;
+        }
+        .service-name {
+            font-weight: bold;
+            font-size: 0.85rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .service-score {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        .service-tests {
+            font-size: 0.75rem;
+            opacity: 0.8;
+        }
+        .radar-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 300px;
+        }
+        .radar-chart {
+            position: relative;
+            width: 280px;
+            height: 280px;
+        }
+        .radar-axis {
+            position: absolute;
+            width: 2px;
+            background: #333;
+            transform-origin: bottom center;
+        }
+        .radar-label {
+            position: absolute;
+            font-size: 0.8rem;
+            color: #888;
+        }
+        .radar-value {
+            position: absolute;
+            background: rgba(0, 212, 255, 0.3);
+            border: 2px solid #00d4ff;
+        }
+        .pattern-bars {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .pattern-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .pattern-label {
+            width: 80px;
+            font-size: 0.9rem;
+        }
+        .pattern-bar-bg {
+            flex: 1;
+            height: 24px;
+            background: #0f3460;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .pattern-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #00d4ff, #0099cc);
+            transition: width 0.5s ease;
+        }
+        .pattern-value {
+            width: 50px;
+            text-align: right;
+            font-size: 0.9rem;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #333;
+        }
+        th {
+            color: #888;
+            font-weight: normal;
+            font-size: 0.85rem;
+        }
+        td {
+            font-size: 0.9rem;
+        }
+        tr:hover {
+            background: #1f4068;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 15px;
+            font-size: 0.85rem;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Test Quality Dashboard</h1>
+        <div class="timestamp">Generated: 2026-03-23 11:11:36</div>
+    </div>
+
+    <div class="summary-cards">
+        <div class="card">
+            <div class="card-value">174</div>
+            <div class="card-label">Services</div>
+        </div>
+        <div class="card">
+            <div class="card-value">13,208</div>
+            <div class="card-label">Total Tests</div>
+        </div>
+        <div class="card">
+            <div class="card-value">11,034</div>
+            <div class="card-label">Effective Tests</div>
+        </div>
+        <div class="card">
+            <div class="card-value">85.5%</div>
+            <div class="card-label">Avg Quality</div>
+        </div>
+        <div class="card">
+            <div class="card-value">32.8%</div>
+            <div class="card-label">Avg Behavioral</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Service Quality Heatmap</h2>
+        <div class="service-grid">
+            
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">timestreamquery</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">1 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">synthetics</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">37 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">stepfunctions_async</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">3 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">state_save_load</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">5 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">state_persistence</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">5 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">ssoadmin</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">7 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">s3_notifications</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">11 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">route53domains</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">36 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">redshiftdata</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">3 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">rdsdata</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">1 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">ram</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">41 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">lexv2models</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">7 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">lambda_python_edge_cases</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">35 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">lambda_nodejs</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">34 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">lambda_java</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">19 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">lambda_integrations</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">12 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">lambda_function_urls</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">9 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">lambda_event_source</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">4 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">lambda_esm_trigger</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">8 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">lambda_dlq_destinations</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">7 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">lambda_custom_runtime</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">11 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">iotdata</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">2 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">identitystore</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">23 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">iam_enforcement</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">15 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">iam</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">319 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">events</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">112 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">ec2instanceconnect</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">1 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">dax</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">26 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">concurrent_requests</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">10 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">cognitoidentity</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">3 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">cfn_e2e</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">12 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">bedrockagent</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">2 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">applicationautoscaling</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">9 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">appconfig</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">48 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">apigatewaymanagementapi</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">3 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(0, 255, 50)">
+            <div class="service-name">acmpca</div>
+            <div class="service-score">100.0%</div>
+            <div class="service-tests">12 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(5, 255, 50)">
+            <div class="service-name">workspaces</div>
+            <div class="service-score">99.0%</div>
+            <div class="service-tests">97 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(5, 255, 50)">
+            <div class="service-name">sqs</div>
+            <div class="service-score">98.9%</div>
+            <div class="service-tests">93 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(10, 255, 50)">
+            <div class="service-name">mediaconnect</div>
+            <div class="service-score">97.9%</div>
+            <div class="service-tests">94 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(11, 255, 50)">
+            <div class="service-name">cross_service</div>
+            <div class="service-score">97.8%</div>
+            <div class="service-tests">45 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(13, 255, 50)">
+            <div class="service-name">kinesisvideo</div>
+            <div class="service-score">97.4%</div>
+            <div class="service-tests">38 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(13, 255, 50)">
+            <div class="service-name">cloudtrail</div>
+            <div class="service-score">97.4%</div>
+            <div class="service-tests">116 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(14, 255, 50)">
+            <div class="service-name">shield</div>
+            <div class="service-score">97.1%</div>
+            <div class="service-tests">35 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(16, 255, 50)">
+            <div class="service-name">lambda_ruby</div>
+            <div class="service-score">96.8%</div>
+            <div class="service-tests">31 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(16, 255, 50)">
+            <div class="service-name">databrew</div>
+            <div class="service-score">96.8%</div>
+            <div class="service-tests">63 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(16, 255, 50)">
+            <div class="service-name">mediapackagev2</div>
+            <div class="service-score">96.7%</div>
+            <div class="service-tests">30 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(17, 255, 50)">
+            <div class="service-name">budgets</div>
+            <div class="service-score">96.6%</div>
+            <div class="service-tests">29 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(17, 255, 50)">
+            <div class="service-name">codecommit</div>
+            <div class="service-score">96.5%</div>
+            <div class="service-tests">85 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(18, 255, 50)">
+            <div class="service-name">managedblockchain</div>
+            <div class="service-score">96.3%</div>
+            <div class="service-tests">27 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(21, 255, 50)">
+            <div class="service-name">datasync</div>
+            <div class="service-score">95.7%</div>
+            <div class="service-tests">70 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(24, 255, 50)">
+            <div class="service-name">ivs</div>
+            <div class="service-score">95.1%</div>
+            <div class="service-tests">41 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(30, 255, 50)">
+            <div class="service-name">ds</div>
+            <div class="service-score">94.0%</div>
+            <div class="service-tests">150 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(31, 255, 50)">
+            <div class="service-name">apigatewayv2</div>
+            <div class="service-score">93.8%</div>
+            <div class="service-tests">112 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(33, 255, 50)">
+            <div class="service-name">wafv2</div>
+            <div class="service-score">93.5%</div>
+            <div class="service-tests">77 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(33, 255, 50)">
+            <div class="service-name">efs</div>
+            <div class="service-score">93.5%</div>
+            <div class="service-tests">46 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(34, 255, 50)">
+            <div class="service-name">lambda_dotnet</div>
+            <div class="service-score">93.3%</div>
+            <div class="service-tests">15 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(35, 255, 50)">
+            <div class="service-name">connect</div>
+            <div class="service-score">93.0%</div>
+            <div class="service-tests">370 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(36, 255, 50)">
+            <div class="service-name">polly</div>
+            <div class="service-score">92.9%</div>
+            <div class="service-tests">14 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(36, 255, 50)">
+            <div class="service-name">panorama</div>
+            <div class="service-score">92.9%</div>
+            <div class="service-tests">42 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(36, 255, 50)">
+            <div class="service-name">elb</div>
+            <div class="service-score">92.9%</div>
+            <div class="service-tests">28 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(36, 255, 50)">
+            <div class="service-name">kinesis</div>
+            <div class="service-score">92.8%</div>
+            <div class="service-tests">97 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(39, 255, 50)">
+            <div class="service-name">signer</div>
+            <div class="service-score">92.3%</div>
+            <div class="service-tests">26 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(41, 255, 50)">
+            <div class="service-name">organizations</div>
+            <div class="service-score">91.9%</div>
+            <div class="service-tests">74 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(42, 255, 50)">
+            <div class="service-name">bedrock</div>
+            <div class="service-score">91.7%</div>
+            <div class="service-tests">132 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(43, 255, 50)">
+            <div class="service-name">s3control</div>
+            <div class="service-score">91.4%</div>
+            <div class="service-tests">175 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(44, 255, 50)">
+            <div class="service-name">datapipeline</div>
+            <div class="service-score">91.3%</div>
+            <div class="service-tests">23 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(46, 255, 50)">
+            <div class="service-name">ssm</div>
+            <div class="service-score">90.9%</div>
+            <div class="service-tests">231 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(46, 255, 50)">
+            <div class="service-name">pipes</div>
+            <div class="service-score">90.9%</div>
+            <div class="service-tests">11 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(46, 255, 50)">
+            <div class="service-name">emrserverless</div>
+            <div class="service-score">90.9%</div>
+            <div class="service-tests">11 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(48, 255, 50)">
+            <div class="service-name">dynamodb</div>
+            <div class="service-score">90.4%</div>
+            <div class="service-tests">178 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(51, 255, 50)">
+            <div class="service-name">transfer</div>
+            <div class="service-score">89.9%</div>
+            <div class="service-tests">129 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(53, 255, 50)">
+            <div class="service-name">firehose</div>
+            <div class="service-score">89.6%</div>
+            <div class="service-tests">48 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(55, 255, 50)">
+            <div class="service-name">appsync</div>
+            <div class="service-score">89.1%</div>
+            <div class="service-tests">92 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(56, 255, 50)">
+            <div class="service-name">sesv2</div>
+            <div class="service-score">89.0%</div>
+            <div class="service-tests">164 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(56, 255, 50)">
+            <div class="service-name">mq</div>
+            <div class="service-score">88.9%</div>
+            <div class="service-tests">27 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(58, 255, 50)">
+            <div class="service-name">textract</div>
+            <div class="service-score">88.6%</div>
+            <div class="service-tests">44 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(58, 255, 50)">
+            <div class="service-name">s3vectors</div>
+            <div class="service-score">88.5%</div>
+            <div class="service-tests">26 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(58, 255, 50)">
+            <div class="service-name">s3_ext</div>
+            <div class="service-score">88.5%</div>
+            <div class="service-tests">96 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(59, 255, 50)">
+            <div class="service-name">elasticache</div>
+            <div class="service-score">88.4%</div>
+            <div class="service-tests">95 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(60, 255, 50)">
+            <div class="service-name">dsql</div>
+            <div class="service-score">88.2%</div>
+            <div class="service-tests">17 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(61, 255, 50)">
+            <div class="service-name">connectcampaigns</div>
+            <div class="service-score">88.0%</div>
+            <div class="service-tests">25 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(61, 255, 50)">
+            <div class="service-name">s3</div>
+            <div class="service-score">87.9%</div>
+            <div class="service-tests">140 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(63, 255, 50)">
+            <div class="service-name">vpclattice</div>
+            <div class="service-score">87.5%</div>
+            <div class="service-tests">8 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(63, 255, 50)">
+            <div class="service-name">swf</div>
+            <div class="service-score">87.5%</div>
+            <div class="service-tests">40 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(64, 255, 50)">
+            <div class="service-name">lambda</div>
+            <div class="service-score">87.3%</div>
+            <div class="service-tests">157 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(66, 255, 50)">
+            <div class="service-name">secretsmanager</div>
+            <div class="service-score">87.0%</div>
+            <div class="service-tests">46 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(66, 255, 50)">
+            <div class="service-name">medialive</div>
+            <div class="service-score">87.0%</div>
+            <div class="service-tests">131 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(66, 255, 50)">
+            <div class="service-name">cloudhsmv2</div>
+            <div class="service-score">87.0%</div>
+            <div class="service-tests">23 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(66, 255, 50)">
+            <div class="service-name">logs</div>
+            <div class="service-score">86.9%</div>
+            <div class="service-tests">160 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(67, 255, 50)">
+            <div class="service-name">glacier</div>
+            <div class="service-score">86.8%</div>
+            <div class="service-tests">38 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(68, 255, 50)">
+            <div class="service-name">resiliencehub</div>
+            <div class="service-score">86.6%</div>
+            <div class="service-tests">97 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(68, 255, 50)">
+            <div class="service-name">neptune</div>
+            <div class="service-score">86.5%</div>
+            <div class="service-tests">104 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(68, 255, 50)">
+            <div class="service-name">athena</div>
+            <div class="service-score">86.5%</div>
+            <div class="service-tests">104 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(69, 255, 50)">
+            <div class="service-name">kms</div>
+            <div class="service-score">86.4%</div>
+            <div class="service-tests">81 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(70, 255, 50)">
+            <div class="service-name">codebuild</div>
+            <div class="service-score">86.2%</div>
+            <div class="service-tests">80 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(70, 255, 50)">
+            <div class="service-name">backup</div>
+            <div class="service-score">86.1%</div>
+            <div class="service-tests">165 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(71, 255, 50)">
+            <div class="service-name">securityhub</div>
+            <div class="service-score">85.9%</div>
+            <div class="service-tests">135 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(73, 255, 50)">
+            <div class="service-name">cloudfront</div>
+            <div class="service-score">85.5%</div>
+            <div class="service-tests">227 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(74, 255, 50)">
+            <div class="service-name">error_format</div>
+            <div class="service-score">85.3%</div>
+            <div class="service-tests">34 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(74, 255, 50)">
+            <div class="service-name">config</div>
+            <div class="service-score">85.3%</div>
+            <div class="service-tests">129 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(77, 255, 50)">
+            <div class="service-name">stepfunctions</div>
+            <div class="service-score">84.9%</div>
+            <div class="service-tests">73 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(78, 255, 50)">
+            <div class="service-name">eks</div>
+            <div class="service-score">84.7%</div>
+            <div class="service-tests">98 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(80, 255, 50)">
+            <div class="service-name">account</div>
+            <div class="service-score">84.2%</div>
+            <div class="service-tests">19 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(81, 255, 50)">
+            <div class="service-name">fsx</div>
+            <div class="service-score">84.1%</div>
+            <div class="service-tests">63 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(81, 255, 50)">
+            <div class="service-name">emr</div>
+            <div class="service-score">84.0%</div>
+            <div class="service-tests">81 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(81, 255, 50)">
+            <div class="service-name">ecs</div>
+            <div class="service-score">84.0%</div>
+            <div class="service-tests">94 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(81, 255, 50)">
+            <div class="service-name">cognito_idp</div>
+            <div class="service-score">84.0%</div>
+            <div class="service-tests">81 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(85, 255, 50)">
+            <div class="service-name">mediapackage</div>
+            <div class="service-score">83.3%</div>
+            <div class="service-tests">24 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(85, 255, 50)">
+            <div class="service-name">apigateway_lambda</div>
+            <div class="service-score">83.3%</div>
+            <div class="service-tests">6 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(86, 255, 50)">
+            <div class="service-name">dms</div>
+            <div class="service-score">83.1%</div>
+            <div class="service-tests">178 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(86, 255, 50)">
+            <div class="service-name">networkmanager</div>
+            <div class="service-score">83.0%</div>
+            <div class="service-tests">112 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(86, 255, 50)">
+            <div class="service-name">comprehend</div>
+            <div class="service-score">83.0%</div>
+            <div class="service-tests">88 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(87, 255, 50)">
+            <div class="service-name">apigateway</div>
+            <div class="service-score">82.9%</div>
+            <div class="service-tests">129 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(87, 255, 50)">
+            <div class="service-name">mediastore</div>
+            <div class="service-score">82.8%</div>
+            <div class="service-tests">29 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(88, 255, 50)">
+            <div class="service-name">route53</div>
+            <div class="service-score">82.7%</div>
+            <div class="service-tests">110 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(89, 255, 50)">
+            <div class="service-name">scheduler</div>
+            <div class="service-score">82.4%</div>
+            <div class="service-tests">34 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(89, 255, 50)">
+            <div class="service-name">memorydb</div>
+            <div class="service-score">82.4%</div>
+            <div class="service-tests">51 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(91, 255, 50)">
+            <div class="service-name">guardduty</div>
+            <div class="service-score">82.0%</div>
+            <div class="service-tests">178 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(92, 255, 50)">
+            <div class="service-name">networkfirewall</div>
+            <div class="service-score">81.8%</div>
+            <div class="service-tests">11 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(97, 255, 50)">
+            <div class="service-name">lakeformation</div>
+            <div class="service-score">80.8%</div>
+            <div class="service-tests">104 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(98, 255, 50)">
+            <div class="service-name">clouddirectory</div>
+            <div class="service-score">80.6%</div>
+            <div class="service-tests">72 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(99, 255, 50)">
+            <div class="service-name">codepipeline</div>
+            <div class="service-score">80.4%</div>
+            <div class="service-tests">46 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(100, 255, 50)">
+            <div class="service-name">transcribe</div>
+            <div class="service-score">80.3%</div>
+            <div class="service-tests">76 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(100, 255, 50)">
+            <div class="service-name">batch</div>
+            <div class="service-score">80.3%</div>
+            <div class="service-tests">61 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(102, 255, 50)">
+            <div class="service-name">emrcontainers</div>
+            <div class="service-score">80.0%</div>
+            <div class="service-tests">5 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(102, 255, 50)">
+            <div class="service-name">autoscaling</div>
+            <div class="service-score">80.0%</div>
+            <div class="service-tests">70 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(102, 255, 50)">
+            <div class="service-name">amp</div>
+            <div class="service-score">80.0%</div>
+            <div class="service-tests">60 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(103, 255, 50)">
+            <div class="service-name">opensearchserverless</div>
+            <div class="service-score">79.7%</div>
+            <div class="service-tests">59 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(104, 255, 50)">
+            <div class="service-name">glue</div>
+            <div class="service-score">79.6%</div>
+            <div class="service-tests">339 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(105, 255, 50)">
+            <div class="service-name">sagemaker</div>
+            <div class="service-score">79.4%</div>
+            <div class="service-tests">490 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(105, 255, 50)">
+            <div class="service-name">cloudformation</div>
+            <div class="service-score">79.3%</div>
+            <div class="service-tests">150 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(106, 255, 50)">
+            <div class="service-name">xray</div>
+            <div class="service-score">79.1%</div>
+            <div class="service-tests">43 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(106, 255, 50)">
+            <div class="service-name">elbv2</div>
+            <div class="service-score">79.1%</div>
+            <div class="service-tests">67 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(109, 255, 50)">
+            <div class="service-name">rds</div>
+            <div class="service-score">78.5%</div>
+            <div class="service-tests">326 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(109, 255, 50)">
+            <div class="service-name">opensearch</div>
+            <div class="service-score">78.5%</div>
+            <div class="service-tests">144 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(112, 255, 50)">
+            <div class="service-name">s3tables</div>
+            <div class="service-score">78.0%</div>
+            <div class="service-tests">50 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(112, 255, 50)">
+            <div class="service-name">codedeploy</div>
+            <div class="service-score">78.0%</div>
+            <div class="service-tests">41 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(112, 255, 50)">
+            <div class="service-name">pinpoint</div>
+            <div class="service-score">77.9%</div>
+            <div class="service-tests">136 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(113, 255, 50)">
+            <div class="service-name">acm</div>
+            <div class="service-score">77.8%</div>
+            <div class="service-tests">45 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(117, 255, 50)">
+            <div class="service-name">kinesisanalyticsv2</div>
+            <div class="service-score">76.9%</div>
+            <div class="service-tests">52 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(119, 255, 50)">
+            <div class="service-name">redshift</div>
+            <div class="service-score">76.6%</div>
+            <div class="service-tests">218 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(119, 255, 50)">
+            <div class="service-name">servicediscovery</div>
+            <div class="service-score">76.5%</div>
+            <div class="service-tests">34 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(120, 255, 50)">
+            <div class="service-name">macie2</div>
+            <div class="service-score">76.3%</div>
+            <div class="service-tests">93 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(125, 255, 50)">
+            <div class="service-name">route53resolver</div>
+            <div class="service-score">75.4%</div>
+            <div class="service-tests">65 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(125, 255, 50)">
+            <div class="service-name">ce</div>
+            <div class="service-score">75.4%</div>
+            <div class="service-tests">61 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(127, 255, 50)">
+            <div class="service-name">timestreamwrite</div>
+            <div class="service-score">75.0%</div>
+            <div class="service-tests">4 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(127, 255, 50)">
+            <div class="service-name">support</div>
+            <div class="service-score">75.0%</div>
+            <div class="service-tests">20 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(129, 255, 50)">
+            <div class="service-name">cloudwatch</div>
+            <div class="service-score">74.6%</div>
+            <div class="service-tests">67 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(134, 255, 50)">
+            <div class="service-name">iot</div>
+            <div class="service-score">73.7%</div>
+            <div class="service-tests">316 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(137, 255, 50)">
+            <div class="service-name">sns</div>
+            <div class="service-score">73.0%</div>
+            <div class="service-tests">100 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(138, 255, 50)">
+            <div class="service-name">rekognition</div>
+            <div class="service-score">72.8%</div>
+            <div class="service-tests">125 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(142, 255, 50)">
+            <div class="service-name">elasticbeanstalk</div>
+            <div class="service-score">72.1%</div>
+            <div class="service-tests">61 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(142, 255, 50)">
+            <div class="service-name">appmesh</div>
+            <div class="service-score">72.0%</div>
+            <div class="service-tests">50 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(143, 255, 50)">
+            <div class="service-name">inspector2</div>
+            <div class="service-score">71.9%</div>
+            <div class="service-tests">89 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(144, 255, 50)">
+            <div class="service-name">ses</div>
+            <div class="service-score">71.7%</div>
+            <div class="service-tests">113 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(145, 255, 50)">
+            <div class="service-name">osis</div>
+            <div class="service-score">71.4%</div>
+            <div class="service-tests">28 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(146, 255, 50)">
+            <div class="service-name">greengrass</div>
+            <div class="service-score">71.2%</div>
+            <div class="service-tests">104 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(151, 255, 50)">
+            <div class="service-name">kafka</div>
+            <div class="service-score">70.3%</div>
+            <div class="service-tests">74 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(153, 255, 50)">
+            <div class="service-name">resource_groups</div>
+            <div class="service-score">70.0%</div>
+            <div class="service-tests">20 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(156, 255, 50)">
+            <div class="service-name">ec2</div>
+            <div class="service-score">69.4%</div>
+            <div class="service-tests">720 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(161, 255, 50)">
+            <div class="service-name">forecast</div>
+            <div class="service-score">68.4%</div>
+            <div class="service-tests">38 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(161, 255, 50)">
+            <div class="service-name">ecr</div>
+            <div class="service-score">68.4%</div>
+            <div class="service-tests">79 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(169, 255, 50)">
+            <div class="service-name">servicecatalogappregistry</div>
+            <div class="service-score">66.7%</div>
+            <div class="service-tests">3 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(174, 255, 50)">
+            <div class="service-name">quicksight</div>
+            <div class="service-score">65.7%</div>
+            <div class="service-tests">242 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(176, 255, 50)">
+            <div class="service-name">servicecatalog</div>
+            <div class="service-score">65.4%</div>
+            <div class="service-tests">104 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(178, 255, 50)">
+            <div class="service-name">dynamodbstreams</div>
+            <div class="service-score">65.0%</div>
+            <div class="service-tests">20 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(182, 255, 50)">
+            <div class="service-name">personalize</div>
+            <div class="service-score">64.3%</div>
+            <div class="service-tests">42 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(196, 255, 50)">
+            <div class="service-name">workspacesweb</div>
+            <div class="service-score">61.5%</div>
+            <div class="service-tests">13 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(208, 255, 50)">
+            <div class="service-name">es</div>
+            <div class="service-score">59.1%</div>
+            <div class="service-tests">66 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(255, 218, 50)">
+            <div class="service-name">sts</div>
+            <div class="service-score">42.9%</div>
+            <div class="service-tests">49 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(255, 204, 50)">
+            <div class="service-name">ebs</div>
+            <div class="service-score">40.0%</div>
+            <div class="service-tests">5 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(255, 169, 50)">
+            <div class="service-name">timestreaminfluxdb</div>
+            <div class="service-score">33.3%</div>
+            <div class="service-tests">3 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(255, 113, 50)">
+            <div class="service-name">resourcegroupstaggingapi</div>
+            <div class="service-score">22.2%</div>
+            <div class="service-tests">9 tests</div>
+        </div>
+        <div class="service-card" style="background-color: rgb(255, 60, 50)">
+            <div class="service-name">resource_groups_tagging</div>
+            <div class="service-score">11.8%</div>
+            <div class="service-tests">17 tests</div>
+        </div>
+        </div>
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: rgb(255, 0, 50)"></div>
+                <span>0-25%</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: rgb(255, 127, 50)"></div>
+                <span>25-50%</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: rgb(255, 255, 50)"></div>
+                <span>50-75%</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: rgb(127, 255, 50)"></div>
+                <span>75-90%</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: rgb(0, 255, 50)"></div>
+                <span>90-100%</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Behavioral Coverage Patterns</h2>
+        <div class="pattern-bars">
+            <div class="pattern-row">
+                <span class="pattern-label">CREATE</span>
+                <div class="pattern-bar-bg">
+                    <div class="pattern-bar" style="width: 55.3%"></div>
+                </div>
+                <span class="pattern-value">55.3%</span>
+            </div>
+            <div class="pattern-row">
+                <span class="pattern-label">RETRIEVE</span>
+                <div class="pattern-bar-bg">
+                    <div class="pattern-bar" style="width: 32.8%"></div>
+                </div>
+                <span class="pattern-value">32.8%</span>
+            </div>
+            <div class="pattern-row">
+                <span class="pattern-label">LIST</span>
+                <div class="pattern-bar-bg">
+                    <div class="pattern-bar" style="width: 33.0%"></div>
+                </div>
+                <span class="pattern-value">33.0%</span>
+            </div>
+            <div class="pattern-row">
+                <span class="pattern-label">UPDATE</span>
+                <div class="pattern-bar-bg">
+                    <div class="pattern-bar" style="width: 14.6%"></div>
+                </div>
+                <span class="pattern-value">14.6%</span>
+            </div>
+            <div class="pattern-row">
+                <span class="pattern-label">DELETE</span>
+                <div class="pattern-bar-bg">
+                    <div class="pattern-bar" style="width: 45.3%"></div>
+                </div>
+                <span class="pattern-value">45.3%</span>
+            </div>
+            <div class="pattern-row">
+                <span class="pattern-label">ERROR</span>
+                <div class="pattern-bar-bg">
+                    <div class="pattern-bar" style="width: 19.0%"></div>
+                </div>
+                <span class="pattern-value">19.0%</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Services Needing Improvement</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Service</th>
+                    <th>Quality</th>
+                    <th>Tests</th>
+                    <th>No Contact</th>
+                    <th>Weak Assert</th>
+                    <th>No Assert</th>
+                </tr>
+            </thead>
+            <tbody>
+                
+        <tr>
+            <td>resource_groups_tagging</td>
+            <td>11.8%</td>
+            <td>17</td>
+            <td>0</td>
+            <td>14</td>
+            <td>1</td>
+        </tr>
+        <tr>
+            <td>resourcegroupstaggingapi</td>
+            <td>22.2%</td>
+            <td>9</td>
+            <td>0</td>
+            <td>7</td>
+            <td>0</td>
+        </tr>
+        <tr>
+            <td>timestreaminfluxdb</td>
+            <td>33.3%</td>
+            <td>3</td>
+            <td>0</td>
+            <td>2</td>
+            <td>0</td>
+        </tr>
+        <tr>
+            <td>ebs</td>
+            <td>40.0%</td>
+            <td>5</td>
+            <td>0</td>
+            <td>3</td>
+            <td>0</td>
+        </tr>
+        <tr>
+            <td>sts</td>
+            <td>42.9%</td>
+            <td>49</td>
+            <td>0</td>
+            <td>27</td>
+            <td>0</td>
+        </tr>
+        <tr>
+            <td>es</td>
+            <td>59.1%</td>
+            <td>66</td>
+            <td>0</td>
+            <td>27</td>
+            <td>0</td>
+        </tr>
+        <tr>
+            <td>workspacesweb</td>
+            <td>61.5%</td>
+            <td>13</td>
+            <td>0</td>
+            <td>5</td>
+            <td>0</td>
+        </tr>
+        <tr>
+            <td>personalize</td>
+            <td>64.3%</td>
+            <td>42</td>
+            <td>0</td>
+            <td>15</td>
+            <td>0</td>
+        </tr>
+        <tr>
+            <td>dynamodbstreams</td>
+            <td>65.0%</td>
+            <td>20</td>
+            <td>0</td>
+            <td>7</td>
+            <td>0</td>
+        </tr>
+        <tr>
+            <td>servicecatalog</td>
+            <td>65.4%</td>
+            <td>104</td>
+            <td>0</td>
+            <td>34</td>
+            <td>1</td>
+        </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // Add interactivity if needed
+        document.querySelectorAll('.service-card').forEach(card => {
+            card.style.cursor = 'pointer';
+            card.addEventListener('click', () => {
+                const name = card.querySelector('.service-name').textContent;
+                alert('Service: ' + name + '\nClick behavior can be customized.');
+            });
+        });
+    </script>
+</body>
+</html>
