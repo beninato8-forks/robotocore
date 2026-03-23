@@ -2172,3 +2172,9 @@ class TestSESv2MetricsAndInsights:
         )
         assert "Results" in resp
         assert isinstance(resp["Results"], list)
+
+
+class TestSESv2MissingGapOps:
+    def test_get_message_insights(self, sesv2):
+        resp = sesv2.get_message_insights(MessageId="test-message-id-12345")
+        assert resp["MessageId"] == "test-message-id-12345"

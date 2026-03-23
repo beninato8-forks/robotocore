@@ -1498,3 +1498,41 @@ class TestSNSDataProtectionPolicy:
                 ResourceArn="arn:aws:sns:us-east-1:123456789012:nonexistent-topic-xyz"
             )
         assert exc.value.response["Error"]["Code"] == "NotFound"
+
+
+class TestSNSSMSSandbox:
+    """Tests for SMS sandbox phone number operations."""
+
+    def test_create_and_delete_sms_sandbox_phone_number(self, sns):
+        """CreateSMSSandboxPhoneNumber then DeleteSMSSandboxPhoneNumber works."""
+        phone = "+15555551234"
+        resp = sns.create_sms_sandbox_phone_number(PhoneNumber=phone)
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        del_resp = sns.delete_sms_sandbox_phone_number(PhoneNumber=phone)
+        assert del_resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_verify_sms_sandbox_phone_number_not_found(self, sns):
+        """VerifySMSSandboxPhoneNumber for unregistered number raises ResourceNotFound."""
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc:
+            sns.verify_sms_sandbox_phone_number(
+                PhoneNumber="+19999999999", OneTimePassword="000000"
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFound"
+
+
+class TestSNSMissingGapOps:
+    def test_put_and_get_data_protection_policy(self, sns):
+        import uuid
+
+        name = f"test-dpp-{uuid.uuid4().hex[:8]}"
+        resp = sns.create_topic(Name=name)
+        arn = resp["TopicArn"]
+        policy = '{"Name":"test","Statements":[]}'
+        try:
+            sns.put_data_protection_policy(ResourceArn=arn, DataProtectionPolicy=policy)
+            r2 = sns.get_data_protection_policy(ResourceArn=arn)
+            assert r2["DataProtectionPolicy"] == policy
+        finally:
+            sns.delete_topic(TopicArn=arn)

@@ -4876,3 +4876,319 @@ class TestGlueStubOps:
         with pytest.raises(ClientError) as exc:
             glue.test_connection(ConnectionName="nonexistent-conn")
         assert exc.value.response["Error"]["Code"] in ("EntityNotFoundException", "InternalError")
+
+
+class TestGlueNewOps:
+    """Tests for Glue newer operations."""
+
+    def test_describe_connection_type_nonexistent(self, glue):
+        """DescribeConnectionType with unknown type raises EntityNotFoundException."""
+        with pytest.raises(ClientError) as exc:
+            glue.describe_connection_type(ConnectionType="FAKE_NONEXISTENT_TYPE")
+        assert exc.value.response["Error"]["Code"] == "EntityNotFoundException"
+
+    def test_describe_entity_nonexistent(self, glue):
+        """DescribeEntity with nonexistent connection raises EntityNotFoundException."""
+        with pytest.raises(ClientError) as exc:
+            glue.describe_entity(ConnectionName="nonexistent-conn-xyz", EntityName="fake-entity")
+        assert exc.value.response["Error"]["Code"] == "EntityNotFoundException"
+
+    def test_get_dataflow_graph(self, glue):
+        """GetDataflowGraph returns DAG nodes and edges."""
+        resp = glue.get_dataflow_graph(PythonScript="x = 1")
+        assert "DagNodes" in resp
+        assert "DagEdges" in resp
+
+    def test_get_glue_identity_center_configuration_not_found(self, glue):
+        """GetGlueIdentityCenterConfiguration raises EntityNotFoundException when not configured."""
+        with pytest.raises(ClientError) as exc:
+            glue.get_glue_identity_center_configuration()
+        assert exc.value.response["Error"]["Code"] == "EntityNotFoundException"
+
+    def test_get_materialized_view_refresh_task_run_not_found(self, glue):
+        """GetMaterializedViewRefreshTaskRun with nonexistent run raises EntityNotFoundException."""
+        with pytest.raises(ClientError) as exc:
+            glue.get_materialized_view_refresh_task_run(
+                CatalogId="123456789012",
+                MaterializedViewRefreshTaskRunId="nonexistent-run-id",
+            )
+        assert exc.value.response["Error"]["Code"] == "EntityNotFoundException"
+
+    def test_get_table_optimizer_not_found(self, glue):
+        """GetTableOptimizer with nonexistent table raises EntityNotFoundException."""
+        with pytest.raises(ClientError) as exc:
+            glue.get_table_optimizer(
+                CatalogId="123456789012",
+                DatabaseName="nonexistent-db-xyz",
+                TableName="nonexistent-table-xyz",
+                Type="compaction",
+            )
+        assert exc.value.response["Error"]["Code"] == "EntityNotFoundException"
+
+    def test_list_connection_types(self, glue):
+        """ListConnectionTypes returns connection types list."""
+        resp = glue.list_connection_types()
+        assert "ConnectionTypes" in resp
+
+    def test_list_entities_nonexistent_connection(self, glue):
+        """ListEntities with nonexistent connection raises EntityNotFoundException."""
+        with pytest.raises(ClientError) as exc:
+            glue.list_entities(ConnectionName="nonexistent-conn-xyz")
+        assert exc.value.response["Error"]["Code"] == "EntityNotFoundException"
+
+    def test_list_materialized_view_refresh_task_runs(self, glue):
+        """ListMaterializedViewRefreshTaskRuns returns empty list for nonexistent view."""
+        resp = glue.list_materialized_view_refresh_task_runs(CatalogId="123456789012")
+        assert "MaterializedViewRefreshTaskRuns" in resp
+
+    def test_list_table_optimizer_runs_not_found(self, glue):
+        """ListTableOptimizerRuns with nonexistent table raises EntityNotFoundException."""
+        with pytest.raises(ClientError) as exc:
+            glue.list_table_optimizer_runs(
+                CatalogId="123456789012",
+                DatabaseName="nonexistent-db-xyz",
+                TableName="nonexistent-table-xyz",
+                Type="compaction",
+            )
+        assert exc.value.response["Error"]["Code"] == "EntityNotFoundException"
+
+
+class TestGlueNewGapOps:
+    """Tests for 23 Glue gap operations."""
+
+    def test_batch_get_table_optimizer_empty(self, glue):
+        """BatchGetTableOptimizer returns TableOptimizers and Failures keys."""
+        resp = glue.batch_get_table_optimizer(
+            Entries=[
+                {
+                    "catalogId": "123456789012",
+                    "databaseName": "nonexistent-db-xyz",
+                    "tableName": "nonexistent-table-xyz",
+                    "type": "compaction",
+                }
+            ]
+        )
+        assert "TableOptimizers" in resp
+        assert "Failures" in resp
+
+    def test_create_glue_identity_center_configuration(self, glue):
+        """CreateGlueIdentityCenterConfiguration returns ApplicationArn."""
+        resp = glue.create_glue_identity_center_configuration(
+            InstanceArn="arn:aws:sso:::instance/ssoins-test-gap-ops"
+        )
+        assert "ApplicationArn" in resp
+
+    def test_create_and_delete_table_optimizer(self, glue):
+        """CreateTableOptimizer succeeds and DeleteTableOptimizer succeeds."""
+        db_name = _unique("db")
+        table_name = _unique("tbl")
+        glue.create_database(DatabaseInput={"Name": db_name})
+        glue.create_table(
+            DatabaseName=db_name,
+            TableInput={
+                "Name": table_name,
+                "StorageDescriptor": {
+                    "Columns": [],
+                    "InputFormat": "",
+                    "OutputFormat": "",
+                    "SerdeInfo": {},
+                },
+            },
+        )
+        resp = glue.create_table_optimizer(
+            CatalogId="123456789012",
+            DatabaseName=db_name,
+            TableName=table_name,
+            Type="compaction",
+            TableOptimizerConfiguration={
+                "roleArn": "arn:aws:iam::123456789012:role/test",
+                "enabled": True,
+            },
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+        resp = glue.delete_table_optimizer(
+            CatalogId="123456789012",
+            DatabaseName=db_name,
+            TableName=table_name,
+            Type="compaction",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        glue.delete_table(DatabaseName=db_name, Name=table_name)
+        glue.delete_database(Name=db_name)
+
+    def test_delete_connection_type_not_found(self, glue):
+        """DeleteConnectionType with nonexistent type raises EntityNotFoundException."""
+        with pytest.raises(ClientError) as exc:
+            glue.delete_connection_type(ConnectionType="NONEXISTENT-TYPE-XYZ")
+        assert exc.value.response["Error"]["Code"] == "EntityNotFoundException"
+
+    def test_delete_glue_identity_center_configuration(self, glue):
+        """DeleteGlueIdentityCenterConfiguration succeeds (no config)."""
+        resp = glue.delete_glue_identity_center_configuration()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_get_plan_returns_python_script(self, glue):
+        """GetPlan returns PythonScript stub."""
+        resp = glue.get_plan(
+            Mapping=[
+                {
+                    "SourceTable": "src",
+                    "SourcePath": "a",
+                    "TargetTable": "tgt",
+                    "TargetPath": "b",
+                    "TargetType": "string",
+                }
+            ],
+            Source={"DatabaseName": "db", "TableName": "tbl"},
+        )
+        assert "PythonScript" in resp
+
+    def test_get_unfiltered_table_metadata_not_found(self, glue):
+        """GetUnfilteredTableMetadata with nonexistent table raises EntityNotFoundException."""
+        with pytest.raises(ClientError) as exc:
+            glue.get_unfiltered_table_metadata(
+                CatalogId="123456789012",
+                DatabaseName="nonexistent-db-xyz",
+                Name="nonexistent-table-xyz",
+                SupportedPermissionTypes=["COLUMN_PERMISSION"],
+            )
+        assert exc.value.response["Error"]["Code"] == "EntityNotFoundException"
+
+    def test_get_unfiltered_partitions_metadata_not_found(self, glue):
+        """GetUnfilteredPartitionsMetadata with nonexistent table raises EntityNotFoundException."""
+        with pytest.raises(ClientError) as exc:
+            glue.get_unfiltered_partitions_metadata(
+                CatalogId="123456789012",
+                DatabaseName="nonexistent-db-xyz",
+                TableName="nonexistent-table-xyz",
+                SupportedPermissionTypes=["COLUMN_PERMISSION"],
+            )
+        assert exc.value.response["Error"]["Code"] == "EntityNotFoundException"
+
+    def test_get_unfiltered_partition_metadata_not_found(self, glue):
+        """GetUnfilteredPartitionMetadata with nonexistent table raises EntityNotFoundException."""
+        with pytest.raises(ClientError) as exc:
+            glue.get_unfiltered_partition_metadata(
+                CatalogId="123456789012",
+                DatabaseName="nonexistent-db-xyz",
+                TableName="nonexistent-table-xyz",
+                PartitionValues=["val1"],
+                SupportedPermissionTypes=["COLUMN_PERMISSION"],
+            )
+        assert exc.value.response["Error"]["Code"] == "EntityNotFoundException"
+
+    def test_list_integration_resource_properties_empty(self, glue):
+        """ListIntegrationResourceProperties returns IntegrationResourcePropertyList."""
+        resp = glue.list_integration_resource_properties()
+        assert "IntegrationResourcePropertyList" in resp
+
+    def test_query_schema_version_metadata_invalid_input(self, glue):
+        """QuerySchemaVersionMetadata with fake ID raises InvalidInputException."""
+        with pytest.raises(ClientError) as exc:
+            glue.query_schema_version_metadata(
+                SchemaVersionId="fake-uuid-0000-1234-abcd-ef0123456789"
+            )
+        assert exc.value.response["Error"]["Code"] == "InvalidInputException"
+
+    def test_register_connection_type(self, glue):
+        """RegisterConnectionType returns ConnectionTypeArn."""
+        resp = glue.register_connection_type(
+            ConnectionType=_unique("CT"),
+            IntegrationType="JDBC",
+            ConnectionProperties={
+                "Url": {
+                    "Name": "Url",
+                    "Required": True,
+                    "PropertyType": "CONNECTION_PROPERTY_TYPE",
+                }
+            },
+            ConnectorAuthenticationConfiguration={"AuthenticationTypes": ["BASIC"]},
+            RestConfiguration={},
+        )
+        assert "ConnectionTypeArn" in resp
+
+    def test_remove_schema_version_metadata_invalid_input(self, glue):
+        """RemoveSchemaVersionMetadata without valid schema raises InvalidInputException."""
+        with pytest.raises(ClientError) as exc:
+            glue.remove_schema_version_metadata(
+                MetadataKeyValue={"MetadataKey": "key", "MetadataValue": "value"}
+            )
+        assert exc.value.response["Error"]["Code"] == "InvalidInputException"
+
+    def test_start_export_labels_task_run_not_found(self, glue):
+        """StartExportLabelsTaskRun with fake transform raises EntityNotFoundException."""
+        with pytest.raises(ClientError) as exc:
+            glue.start_export_labels_task_run(
+                TransformId="fake-transform-id-xyz",
+                OutputS3Path="s3://bucket/path",
+            )
+        assert exc.value.response["Error"]["Code"] == "EntityNotFoundException"
+
+    def test_start_import_labels_task_run_not_found(self, glue):
+        """StartImportLabelsTaskRun with fake transform raises EntityNotFoundException."""
+        with pytest.raises(ClientError) as exc:
+            glue.start_import_labels_task_run(
+                TransformId="fake-transform-id-xyz",
+                InputS3Path="s3://bucket/path",
+            )
+        assert exc.value.response["Error"]["Code"] == "EntityNotFoundException"
+
+    def test_start_ml_labeling_set_generation_task_run_not_found(self, glue):
+        """StartMLLabelingSetGenerationTaskRun with fake transform raises EntityNotFoundException."""  # noqa: E501
+        with pytest.raises(ClientError) as exc:
+            glue.start_ml_labeling_set_generation_task_run(
+                TransformId="fake-transform-id-xyz",
+                OutputS3Path="s3://bucket/path",
+            )
+        assert exc.value.response["Error"]["Code"] == "EntityNotFoundException"
+
+    def test_start_materialized_view_refresh_task_run_not_found(self, glue):
+        """StartMaterializedViewRefreshTaskRun raises EntityNotFoundException."""
+        with pytest.raises(ClientError) as exc:
+            glue.start_materialized_view_refresh_task_run(
+                CatalogId="123456789012",
+                DatabaseName="nonexistent-db-xyz",
+                TableName="nonexistent-table-xyz",
+            )
+        assert exc.value.response["Error"]["Code"] == "EntityNotFoundException"
+
+    def test_stop_materialized_view_refresh_task_run(self, glue):
+        """StopMaterializedViewRefreshTaskRun succeeds (no-op if not running)."""
+        resp = glue.stop_materialized_view_refresh_task_run(
+            CatalogId="123456789012",
+            DatabaseName="nonexistent-db-xyz",
+            TableName="nonexistent-table-xyz",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_update_glue_identity_center_configuration_not_found(self, glue):
+        """UpdateGlueIdentityCenterConfiguration with no config raises EntityNotFoundException."""
+        with pytest.raises(ClientError) as exc:
+            glue.update_glue_identity_center_configuration()
+        assert exc.value.response["Error"]["Code"] == "EntityNotFoundException"
+
+    def test_update_job_from_source_control_no_job(self, glue):
+        """UpdateJobFromSourceControl with no job returns empty JobName."""
+        resp = glue.update_job_from_source_control()
+        assert "JobName" in resp
+
+    def test_update_source_control_from_job_no_job(self, glue):
+        """UpdateSourceControlFromJob with no job returns empty JobName."""
+        resp = glue.update_source_control_from_job()
+        assert "JobName" in resp
+
+    def test_update_table_optimizer_not_found(self, glue):
+        """UpdateTableOptimizer with nonexistent table raises EntityNotFoundException."""
+        with pytest.raises(ClientError) as exc:
+            glue.update_table_optimizer(
+                CatalogId="123456789012",
+                DatabaseName="nonexistent-db-xyz",
+                TableName="nonexistent-table-xyz",
+                Type="compaction",
+                TableOptimizerConfiguration={
+                    "roleArn": "arn:aws:iam::123456789012:role/test",
+                    "enabled": True,
+                },
+            )
+        assert exc.value.response["Error"]["Code"] == "EntityNotFoundException"

@@ -347,3 +347,116 @@ class TestIdentitystoreGroupMembership:
                 MembershipId="00000000-0000-0000-0000-000000000000",
             )
         assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+
+class TestIdentitystoreUpdateOps:
+    """Tests for UpdateUser and UpdateGroup operations."""
+
+    def test_update_user(self, identitystore):
+        """UpdateUser successfully updates a user attribute."""
+        user_resp = identitystore.create_user(
+            IdentityStoreId=IDENTITY_STORE_ID,
+            UserName="update-test-user",
+            DisplayName="Original Name",
+            Name={"FamilyName": "Name", "GivenName": "Original"},
+        )
+        user_id = user_resp["UserId"]
+        try:
+            resp = identitystore.update_user(
+                IdentityStoreId=IDENTITY_STORE_ID,
+                UserId=user_id,
+                Operations=[{"AttributePath": "displayName", "AttributeValue": "Updated Name"}],
+            )
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        finally:
+            identitystore.delete_user(IdentityStoreId=IDENTITY_STORE_ID, UserId=user_id)
+
+    def test_update_group(self, identitystore):
+        """UpdateGroup successfully updates a group attribute."""
+        group_resp = identitystore.create_group(
+            IdentityStoreId=IDENTITY_STORE_ID,
+            DisplayName="Original Group",
+        )
+        group_id = group_resp["GroupId"]
+        try:
+            resp = identitystore.update_group(
+                IdentityStoreId=IDENTITY_STORE_ID,
+                GroupId=group_id,
+                Operations=[{"AttributePath": "displayName", "AttributeValue": "Updated Group"}],
+            )
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        finally:
+            identitystore.delete_group(IdentityStoreId=IDENTITY_STORE_ID, GroupId=group_id)
+
+
+class TestIdentitystoreMembershipLookup:
+    """Tests for GetGroupMembershipId and IsMemberInGroups operations."""
+
+    def test_get_group_membership_id(self, identitystore):
+        """GetGroupMembershipId returns membership ID for a member in a group."""
+        user_resp = identitystore.create_user(
+            IdentityStoreId=IDENTITY_STORE_ID,
+            UserName="membership-lookup-user",
+            DisplayName="Lookup User",
+            Name={"FamilyName": "User", "GivenName": "Lookup"},
+        )
+        uid = user_resp["UserId"]
+        group_resp = identitystore.create_group(
+            IdentityStoreId=IDENTITY_STORE_ID, DisplayName="Membership Lookup Group"
+        )
+        gid = group_resp["GroupId"]
+        m_resp = identitystore.create_group_membership(
+            IdentityStoreId=IDENTITY_STORE_ID,
+            GroupId=gid,
+            MemberId={"UserId": uid},
+        )
+        expected_mid = m_resp["MembershipId"]
+        try:
+            resp = identitystore.get_group_membership_id(
+                IdentityStoreId=IDENTITY_STORE_ID,
+                GroupId=gid,
+                MemberId={"UserId": uid},
+            )
+            assert resp["MembershipId"] == expected_mid
+        finally:
+            identitystore.delete_group_membership(
+                IdentityStoreId=IDENTITY_STORE_ID, MembershipId=expected_mid
+            )
+            identitystore.delete_user(IdentityStoreId=IDENTITY_STORE_ID, UserId=uid)
+            identitystore.delete_group(IdentityStoreId=IDENTITY_STORE_ID, GroupId=gid)
+
+    def test_is_member_in_groups(self, identitystore):
+        """IsMemberInGroups returns membership status for each group."""
+        user_resp = identitystore.create_user(
+            IdentityStoreId=IDENTITY_STORE_ID,
+            UserName="is-member-user",
+            DisplayName="Is Member User",
+            Name={"FamilyName": "User", "GivenName": "Member"},
+        )
+        uid = user_resp["UserId"]
+        group_resp = identitystore.create_group(
+            IdentityStoreId=IDENTITY_STORE_ID, DisplayName="IsMember Group"
+        )
+        gid = group_resp["GroupId"]
+        m_resp = identitystore.create_group_membership(
+            IdentityStoreId=IDENTITY_STORE_ID,
+            GroupId=gid,
+            MemberId={"UserId": uid},
+        )
+        mid = m_resp["MembershipId"]
+        try:
+            resp = identitystore.is_member_in_groups(
+                IdentityStoreId=IDENTITY_STORE_ID,
+                MemberId={"UserId": uid},
+                GroupIds=[gid],
+            )
+            assert "Results" in resp
+            assert len(resp["Results"]) == 1
+            assert resp["Results"][0]["GroupId"] == gid
+            assert resp["Results"][0]["MembershipExists"] is True
+        finally:
+            identitystore.delete_group_membership(
+                IdentityStoreId=IDENTITY_STORE_ID, MembershipId=mid
+            )
+            identitystore.delete_user(IdentityStoreId=IDENTITY_STORE_ID, UserId=uid)
+            identitystore.delete_group(IdentityStoreId=IDENTITY_STORE_ID, GroupId=gid)

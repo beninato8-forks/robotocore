@@ -1832,3 +1832,69 @@ class TestConfigAggregatorSourcesStatus:
                 ConfigurationAggregatorName="nonexistent-aggregator-xyz"
             )
         assert exc.value.response["Error"]["Code"] == "NoSuchConfigurationAggregatorException"
+
+
+class TestConfigGapOperations:
+    """Tests for previously unimplemented config gap operations."""
+
+    def test_delete_pending_aggregation_request_succeeds(self, config):
+        """DeletePendingAggregationRequest completes without error."""
+        resp = config.delete_pending_aggregation_request(
+            RequesterAccountId="123456789012",
+            RequesterAwsRegion="us-east-1",
+        )
+        assert "ResponseMetadata" in resp
+
+    def test_delete_service_linked_configuration_recorder_returns_name_arn(self, config):
+        """DeleteServiceLinkedConfigurationRecorder returns Arn and Name."""
+        resp = config.delete_service_linked_configuration_recorder(
+            ServicePrincipal="ec2.amazonaws.com",
+        )
+        assert "Arn" in resp
+        assert "Name" in resp
+
+    def test_deliver_config_snapshot_returns_snapshot_id(self, config):
+        """DeliverConfigSnapshot returns a configSnapshotId."""
+        resp = config.deliver_config_snapshot(deliveryChannelName="default")
+        assert "configSnapshotId" in resp
+        assert len(resp["configSnapshotId"]) > 0
+
+    def test_get_organization_custom_rule_policy_returns_policy(self, config):
+        """GetOrganizationCustomRulePolicy returns PolicyText key."""
+        resp = config.get_organization_custom_rule_policy(
+            OrganizationConfigRuleName="test-rule",
+        )
+        assert "PolicyText" in resp
+
+    def test_put_service_linked_configuration_recorder_returns_name_arn(self, config):
+        """PutServiceLinkedConfigurationRecorder returns Arn and Name."""
+        resp = config.put_service_linked_configuration_recorder(
+            ServicePrincipal="ec2.amazonaws.com",
+        )
+        assert "Arn" in resp
+        assert "Name" in resp
+
+    def test_select_aggregate_resource_config_returns_results(self, config):
+        """SelectAggregateResourceConfig returns Results and QueryInfo."""
+        resp = config.select_aggregate_resource_config(
+            Expression="SELECT *",
+            ConfigurationAggregatorName="test-agg",
+        )
+        assert "Results" in resp
+        assert "QueryInfo" in resp
+
+    def test_associate_resource_types_returns_recorder(self, config):
+        """AssociateResourceTypes returns ConfigurationRecorder."""
+        resp = config.associate_resource_types(
+            ConfigurationRecorderArn="arn:aws:config:us-east-1:123456789012:config-recorder/test",
+            ResourceTypes=["AWS::EC2::Instance"],
+        )
+        assert "ConfigurationRecorder" in resp
+
+    def test_disassociate_resource_types_returns_recorder(self, config):
+        """DisassociateResourceTypes returns ConfigurationRecorder."""
+        resp = config.disassociate_resource_types(
+            ConfigurationRecorderArn="arn:aws:config:us-east-1:123456789012:config-recorder/test",
+            ResourceTypes=["AWS::EC2::Instance"],
+        )
+        assert "ConfigurationRecorder" in resp

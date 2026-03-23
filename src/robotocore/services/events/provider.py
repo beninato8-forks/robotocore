@@ -1303,6 +1303,80 @@ def _test_event_pattern(store: EventsStore, params: dict, region: str, account_i
     return {"Result": result}
 
 
+def _deauthorize_connection(store: EventsStore, params: dict, region: str, account_id: str) -> dict:
+    name = params.get("Name", "")
+    conn = _connections.get(name)
+    if not conn:
+        raise EventsError("ResourceNotFoundException", f"Connection '{name}' does not exist.", 400)
+    conn["ConnectionState"] = "DEAUTHORIZED"
+    conn["LastModifiedTime"] = time.time()
+    return {
+        "ConnectionArn": conn["ConnectionArn"],
+        "ConnectionState": conn["ConnectionState"],
+        "LastModifiedTime": conn["LastModifiedTime"],
+    }
+
+
+# --- Endpoints ---
+
+_endpoints: dict[str, dict] = {}
+
+
+def _create_endpoint(store: EventsStore, params: dict, region: str, account_id: str) -> dict:
+    name = params.get("Name", "")
+    endpoint_arn = f"arn:aws:events:{region}:{account_id}:endpoint/{name}"
+    endpoint = {
+        "Name": name,
+        "EndpointArn": endpoint_arn,
+        "EndpointUrl": f"https://{name}.endpoint.events.amazonaws.com",
+        "State": "ACTIVE",
+        "StateReason": "",
+        "RoutingConfig": params.get("RoutingConfig", {}),
+        "ReplicationConfig": params.get("ReplicationConfig", {"State": "ENABLED"}),
+        "EventBuses": params.get("EventBuses", []),
+        "RoleArn": params.get("RoleArn", ""),
+        "Description": params.get("Description", ""),
+        "CreationTime": time.time(),
+        "LastModifiedTime": time.time(),
+    }
+    _endpoints[name] = endpoint
+    return {
+        "Name": endpoint["Name"],
+        "Arn": endpoint_arn,
+        "RoutingConfig": endpoint["RoutingConfig"],
+        "ReplicationConfig": endpoint["ReplicationConfig"],
+        "EventBuses": endpoint["EventBuses"],
+        "RoleArn": endpoint["RoleArn"],
+        "State": endpoint["State"],
+    }
+
+
+def _delete_endpoint(store: EventsStore, params: dict, region: str, account_id: str) -> dict:
+    name = params.get("Name", "")
+    _endpoints.pop(name, None)
+    return {}
+
+
+def _update_endpoint(store: EventsStore, params: dict, region: str, account_id: str) -> dict:
+    name = params.get("Name", "")
+    endpoint = _endpoints.get(name)
+    if not endpoint:
+        raise EventsError("ResourceNotFoundException", f"Endpoint '{name}' does not exist.", 400)
+    for field in ("RoutingConfig", "ReplicationConfig", "EventBuses", "RoleArn", "Description"):
+        if field in params:
+            endpoint[field] = params[field]
+    endpoint["LastModifiedTime"] = time.time()
+    return {
+        "Name": endpoint["Name"],
+        "Arn": endpoint["EndpointArn"],
+        "RoutingConfig": endpoint["RoutingConfig"],
+        "ReplicationConfig": endpoint["ReplicationConfig"],
+        "EventBuses": endpoint["EventBuses"],
+        "RoleArn": endpoint["RoleArn"],
+        "State": endpoint["State"],
+    }
+
+
 def _matches_pattern(pattern: dict, event: dict) -> bool:
     """Check if an event matches an EventBridge event pattern.
 
@@ -1359,4 +1433,8 @@ _ACTION_MAP = {
     "UpdateApiDestination": _update_api_destination,
     "ListRuleNamesByTarget": _list_rule_names_by_target,
     "TestEventPattern": _test_event_pattern,
+    "DeauthorizeConnection": _deauthorize_connection,
+    "CreateEndpoint": _create_endpoint,
+    "DeleteEndpoint": _delete_endpoint,
+    "UpdateEndpoint": _update_endpoint,
 }

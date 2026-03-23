@@ -2147,3 +2147,185 @@ class TestAPIGatewayTagUntagResource:
         api_resp = apigw.get_rest_api(restApiId=api_id)
         assert "env" not in api_resp.get("tags", {})
         apigw.delete_rest_api(restApiId=api_id)
+
+
+class TestAPIGatewayNewStubOps:
+    """Tests for newly-implemented stub operations."""
+
+    def test_get_sdk_types(self, apigw):
+        resp = apigw.get_sdk_types()
+        assert "items" in resp
+
+    def test_get_sdk_type(self, apigw):
+        resp = apigw.get_sdk_type(id="javascript")
+        assert "id" in resp
+
+    def test_update_vpc_link(self, apigw):
+        nlb_arn = "arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/net/test/abc123"
+        vpc = apigw.create_vpc_link(name="test-vpc-link", targetArns=[nlb_arn])
+        link_id = vpc["id"]
+        resp = apigw.update_vpc_link(
+            vpcLinkId=link_id,
+            patchOperations=[{"op": "replace", "path": "/name", "value": "updated-name"}],
+        )
+        assert "id" in resp
+        apigw.delete_vpc_link(vpcLinkId=link_id)
+
+    def test_update_deployment(self, apigw, rest_api):
+        # Must have at least one method before creating a deployment
+        resources = apigw.get_resources(restApiId=rest_api)
+        root_id = [r for r in resources["items"] if r["path"] == "/"][0]["id"]
+        apigw.put_method(
+            restApiId=rest_api, resourceId=root_id, httpMethod="GET", authorizationType="NONE"
+        )
+        apigw.put_integration(restApiId=rest_api, resourceId=root_id, httpMethod="GET", type="MOCK")
+        dep = apigw.create_deployment(restApiId=rest_api, stageName="v1")
+        dep_id = dep["id"]
+        resp = apigw.update_deployment(
+            restApiId=rest_api,
+            deploymentId=dep_id,
+            patchOperations=[{"op": "replace", "path": "/description", "value": "updated"}],
+        )
+        assert "id" in resp
+
+    def test_update_domain_name(self, apigw):
+        apigw.create_domain_name(domainName="api.example.com")
+        resp = apigw.update_domain_name(
+            domainName="api.example.com",
+            patchOperations=[{"op": "replace", "path": "/certificateName", "value": "my-cert"}],
+        )
+        assert "domainName" in resp
+
+    def test_update_model(self, apigw, rest_api):
+        apigw.create_model(
+            restApiId=rest_api,
+            name="MyModel",
+            contentType="application/json",
+            schema='{"type": "object"}',
+        )
+        resp = apigw.update_model(
+            restApiId=rest_api,
+            modelName="MyModel",
+            patchOperations=[{"op": "replace", "path": "/description", "value": "updated"}],
+        )
+        assert "name" in resp
+
+    def test_update_resource(self, apigw, rest_api):
+        resources = apigw.get_resources(restApiId=rest_api)
+        root_id = [r for r in resources["items"] if r["path"] == "/"][0]["id"]
+        new_res = apigw.create_resource(restApiId=rest_api, parentId=root_id, pathPart="items")
+        resource_id = new_res["id"]
+        resp = apigw.update_resource(
+            restApiId=rest_api,
+            resourceId=resource_id,
+            patchOperations=[{"op": "replace", "path": "/pathPart", "value": "things"}],
+        )
+        assert "id" in resp
+
+    def test_test_invoke_authorizer(self, apigw, rest_api):
+        authorizer = apigw.create_authorizer(
+            restApiId=rest_api,
+            name="test-auth",
+            type="TOKEN",
+            authorizerUri="arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/arn:aws:lambda:us-east-1:123456789012:function:authorizer/invocations",
+            identitySource="method.request.header.Authorization",
+        )
+        auth_id = authorizer["id"]
+        resp = apigw.test_invoke_authorizer(
+            restApiId=rest_api,
+            authorizerId=auth_id,
+            headers={"Authorization": "Bearer test-token"},
+        )
+        assert "clientStatus" in resp
+
+    def test_test_invoke_method(self, apigw, rest_api):
+        resources = apigw.get_resources(restApiId=rest_api)
+        root_id = [r for r in resources["items"] if r["path"] == "/"][0]["id"]
+        apigw.put_method(
+            restApiId=rest_api, resourceId=root_id, httpMethod="GET", authorizationType="NONE"
+        )
+        apigw.put_integration(
+            restApiId=rest_api,
+            resourceId=root_id,
+            httpMethod="GET",
+            type="MOCK",
+            requestTemplates={"application/json": '{"statusCode": 200}'},
+        )
+        resp = apigw.test_invoke_method(
+            restApiId=rest_api,
+            resourceId=root_id,
+            httpMethod="GET",
+            pathWithQueryString="/",
+        )
+        assert "status" in resp
+
+
+class TestAPIGatewayDomainNameAccessAssociation:
+    """Tests for DomainNameAccessAssociation ops (new stub ops)."""
+
+    def test_create_domain_name_access_association(self, apigw):
+        """CreateDomainNameAccessAssociation returns association ARN."""
+        resp = apigw.create_domain_name_access_association(
+            domainNameArn="arn:aws:apigateway:us-east-1::/domainnames/test.example.com",
+            accessAssociationSourceType="VPCE",
+            accessAssociationSource="vpce-0a1b2c3d4e5f67890",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "domainNameAccessAssociationArn" in resp
+
+    def test_get_domain_name_access_associations(self, apigw):
+        """GetDomainNameAccessAssociations returns a list."""
+        resp = apigw.get_domain_name_access_associations()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "items" in resp
+
+    def test_delete_domain_name_access_association(self, apigw):
+        """DeleteDomainNameAccessAssociation with fake ARN returns 200."""
+        fake_arn = "arn:aws:apigateway:us-east-1:012345678901::/domainNameAccessAssociations/fake"
+        resp = apigw.delete_domain_name_access_association(
+            domainNameAccessAssociationArn=fake_arn,
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_reject_domain_name_access_association(self, apigw):
+        """RejectDomainNameAccessAssociation returns 200."""
+        resp = apigw.reject_domain_name_access_association(
+            domainNameAccessAssociationArn=(
+                "arn:aws:apigateway:us-east-1::/domainNameAccessAssociations/fake"
+            ),
+            domainNameArn="arn:aws:apigateway:us-east-1::/domainnames/test.example.com",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_get_model_template(self, apigw):
+        """GetModelTemplate returns a template value."""
+        resp = apigw.get_model_template(restApiId="fake-api-id", modelName="Empty")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "value" in resp
+
+    def test_import_documentation_parts(self, apigw):
+        """ImportDocumentationParts returns empty ids list."""
+        resp = apigw.import_documentation_parts(restApiId="fake-api-id", body=b"{}")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "ids" in resp
+
+
+class TestAPIGatewayImportApiKeysGapOp:
+    """Test ImportApiKeys operation (returns 501 NotImplemented)."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("apigateway")
+
+    def test_import_api_keys_not_implemented(self, client):
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc:
+            client.import_api_keys(
+                body=b"key1,description1\nkey2,description2",
+                format="csv",
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "BadRequestException",
+        )

@@ -108,3 +108,77 @@ class TestDSQLTagsForResource:
                 resourceArn="arn:aws:dsql:us-east-1:123456789012:cluster/nonexistent"
             )
         assert exc_info.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+
+class TestDSQLNewOps:
+    """Tests for newly implemented DSQL operations."""
+
+    def test_list_clusters(self, dsql):
+        create_resp = dsql.create_cluster(deletionProtectionEnabled=False)
+        cluster_id = create_resp["identifier"]
+        try:
+            resp = dsql.list_clusters()
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+            assert "clusters" in resp
+            ids = [c["identifier"] for c in resp["clusters"]]
+            assert cluster_id in ids
+        finally:
+            dsql.delete_cluster(identifier=cluster_id)
+
+    def test_update_cluster(self, dsql):
+        create_resp = dsql.create_cluster(deletionProtectionEnabled=False)
+        cluster_id = create_resp["identifier"]
+        try:
+            resp = dsql.update_cluster(identifier=cluster_id, deletionProtectionEnabled=True)
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+            assert resp["identifier"] == cluster_id
+        finally:
+            dsql.delete_cluster(identifier=cluster_id)
+
+    def test_put_and_get_cluster_policy(self, dsql):
+        create_resp = dsql.create_cluster(deletionProtectionEnabled=False)
+        cluster_id = create_resp["identifier"]
+        policy = '{"Version":"2012-10-17","Statement":[]}'
+        try:
+            dsql.put_cluster_policy(identifier=cluster_id, policy=policy)
+            resp = dsql.get_cluster_policy(identifier=cluster_id)
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+            assert resp["policy"] == policy
+        finally:
+            dsql.delete_cluster(identifier=cluster_id)
+
+    def test_delete_cluster_policy(self, dsql):
+        create_resp = dsql.create_cluster(deletionProtectionEnabled=False)
+        cluster_id = create_resp["identifier"]
+        try:
+            dsql.put_cluster_policy(identifier=cluster_id, policy='{"Version":"2012-10-17"}')
+            dsql.delete_cluster_policy(identifier=cluster_id)
+            resp = dsql.get_cluster_policy(identifier=cluster_id)
+            assert resp["policy"] == ""
+        finally:
+            dsql.delete_cluster(identifier=cluster_id)
+
+    def test_tag_resource(self, dsql):
+        create_resp = dsql.create_cluster(deletionProtectionEnabled=False)
+        cluster_id = create_resp["identifier"]
+        cluster_arn = create_resp["arn"]
+        try:
+            dsql.tag_resource(resourceArn=cluster_arn, tags={"NewTag": "newval"})
+            resp = dsql.list_tags_for_resource(resourceArn=cluster_arn)
+            assert resp["tags"].get("NewTag") == "newval"
+        finally:
+            dsql.delete_cluster(identifier=cluster_id)
+
+    def test_untag_resource(self, dsql):
+        create_resp = dsql.create_cluster(
+            deletionProtectionEnabled=False, tags={"ToKeep": "yes", "ToRemove": "no"}
+        )
+        cluster_id = create_resp["identifier"]
+        cluster_arn = create_resp["arn"]
+        try:
+            dsql.untag_resource(resourceArn=cluster_arn, tagKeys=["ToRemove"])
+            resp = dsql.list_tags_for_resource(resourceArn=cluster_arn)
+            assert "ToRemove" not in resp["tags"]
+            assert resp["tags"].get("ToKeep") == "yes"
+        finally:
+            dsql.delete_cluster(identifier=cluster_id)

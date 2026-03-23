@@ -1202,3 +1202,161 @@ class TestELBv2RuleAdvanced:
             assert rule["Actions"][0]["FixedResponseConfig"]["StatusCode"] == "200"
         finally:
             elbv2.delete_rule(RuleArn=rule_arn)
+
+
+class TestELBv2MissingGapOps:
+    """Tests for previously untested ELBv2 operations."""
+
+    @pytest.fixture
+    def elbv2(self):
+        return make_client("elbv2")
+
+    def test_describe_trust_stores(self, elbv2):
+        """describe_trust_stores returns TrustStores key."""
+        response = elbv2.describe_trust_stores()
+        assert "TrustStores" in response
+
+    def test_create_trust_store(self, elbv2):
+        """create_trust_store creates a trust store and returns it."""
+        name = f"ts-{uuid.uuid4().hex[:8]}"
+        response = elbv2.create_trust_store(
+            Name=name,
+            CaCertificatesBundleS3Bucket="test",
+            CaCertificatesBundleS3Key="test.pem",
+        )
+        assert "TrustStores" in response
+        assert response["TrustStores"][0]["Name"] == name
+
+    def test_get_resource_policy(self, elbv2):
+        """get_resource_policy returns Policy key."""
+        response = elbv2.get_resource_policy(
+            ResourceArn="arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/test/abc"
+        )
+        assert "Policy" in response
+
+    def test_modify_capacity_reservation(self, elbv2):
+        """modify_capacity_reservation returns CapacityReservationState key."""
+        response = elbv2.modify_capacity_reservation(
+            LoadBalancerArn="arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/test/abc"
+        )
+        assert "CapacityReservationState" in response
+
+
+class TestELBV2TrustStoreGapOps:
+    """Tests for elbv2 trust store ops that were working but untested."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("elbv2")
+
+    def test_describe_trust_store_associations(self, client):
+        """DescribeTrustStoreAssociations returns empty list for new trust store."""
+        ts = client.create_trust_store(
+            Name="test-ts-assoc",
+            CaCertificatesBundleS3Bucket="test-bucket",
+            CaCertificatesBundleS3Key="test.pem",
+        )
+        arn = ts["TrustStores"][0]["TrustStoreArn"]
+        try:
+            resp = client.describe_trust_store_associations(TrustStoreArn=arn)
+            assert "TrustStoreAssociations" in resp
+        finally:
+            client.delete_trust_store(TrustStoreArn=arn)
+
+    def test_describe_trust_store_revocations(self, client):
+        """DescribeTrustStoreRevocations returns empty list for new trust store."""
+        ts = client.create_trust_store(
+            Name="test-ts-revoc",
+            CaCertificatesBundleS3Bucket="test-bucket",
+            CaCertificatesBundleS3Key="test.pem",
+        )
+        arn = ts["TrustStores"][0]["TrustStoreArn"]
+        try:
+            resp = client.describe_trust_store_revocations(TrustStoreArn=arn)
+            assert "TrustStoreRevocations" in resp
+        finally:
+            client.delete_trust_store(TrustStoreArn=arn)
+
+    def test_get_trust_store_ca_certificates_bundle(self, client):
+        """GetTrustStoreCaCertificatesBundle returns a location for the bundle."""
+        ts = client.create_trust_store(
+            Name="test-ts-ca",
+            CaCertificatesBundleS3Bucket="test-bucket",
+            CaCertificatesBundleS3Key="test.pem",
+        )
+        arn = ts["TrustStores"][0]["TrustStoreArn"]
+        try:
+            resp = client.get_trust_store_ca_certificates_bundle(TrustStoreArn=arn)
+            assert "Location" in resp
+        finally:
+            client.delete_trust_store(TrustStoreArn=arn)
+
+    def test_get_trust_store_revocation_content(self, client):
+        """GetTrustStoreRevocationContent returns location for revocation content."""
+        ts = client.create_trust_store(
+            Name="test-ts-rvc",
+            CaCertificatesBundleS3Bucket="test-bucket",
+            CaCertificatesBundleS3Key="test.pem",
+        )
+        arn = ts["TrustStores"][0]["TrustStoreArn"]
+        try:
+            resp = client.get_trust_store_revocation_content(TrustStoreArn=arn, RevocationId=1)
+            assert "Location" in resp
+        finally:
+            client.delete_trust_store(TrustStoreArn=arn)
+
+
+class TestELBV2GapOpsV2:
+    """Tests for elbv2 ops that were implemented but not directly called."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("elbv2")
+
+    @pytest.fixture
+    def trust_store(self, client):
+        ts = client.create_trust_store(
+            Name="test-ts-ops-v2",
+            CaCertificatesBundleS3Bucket="test-bucket",
+            CaCertificatesBundleS3Key="ca.pem",
+        )
+        arn = ts["TrustStores"][0]["TrustStoreArn"]
+        yield arn
+        try:
+            client.delete_trust_store(TrustStoreArn=arn)
+        except Exception:
+            pass  # best-effort cleanup
+
+    def test_add_trust_store_revocations(self, client, trust_store):
+        """AddTrustStoreRevocations succeeds with empty list."""
+        resp = client.add_trust_store_revocations(TrustStoreArn=trust_store, RevocationContents=[])
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_remove_trust_store_revocations(self, client, trust_store):
+        """RemoveTrustStoreRevocations succeeds with nonexistent revocation ID."""
+        resp = client.remove_trust_store_revocations(TrustStoreArn=trust_store, RevocationIds=[999])
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_modify_trust_store(self, client, trust_store):
+        """ModifyTrustStore updates the CA bundle location."""
+        resp = client.modify_trust_store(
+            TrustStoreArn=trust_store,
+            CaCertificatesBundleS3Bucket="updated-bucket",
+            CaCertificatesBundleS3Key="updated.pem",
+        )
+        assert "TrustStores" in resp
+
+    def test_delete_shared_trust_store_association(self, client, trust_store):
+        """DeleteSharedTrustStoreAssociation returns 200."""
+        resp = client.delete_shared_trust_store_association(
+            TrustStoreArn=trust_store,
+            ResourceArn="arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/test/abc123",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_modify_ip_pools(self, client):
+        """ModifyIpPools returns 200 for any load balancer ARN."""
+        resp = client.modify_ip_pools(
+            LoadBalancerArn="arn:aws:elasticloadbalancing:us-east-1:123456789012:loadbalancer/app/test/abc123"
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200

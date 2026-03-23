@@ -604,3 +604,78 @@ class TestXRayTraceSegmentDestination:
         resp = xray.get_trace_segment_destination()
         assert "Destination" in resp
         assert "Status" in resp
+
+    def test_update_trace_segment_destination(self, xray):
+        """UpdateTraceSegmentDestination returns updated destination."""
+        resp = xray.update_trace_segment_destination(Destination="XRay")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "Destination" in resp
+        assert resp["Destination"] == "XRay"
+
+
+class TestXRayUpdateGroupAndSamplingRule:
+    """Test UpdateGroup and UpdateSamplingRule."""
+
+    def test_update_group(self, xray):
+        """UpdateGroup modifies filter expression of an existing group."""
+        import uuid
+
+        group_name = f"test-group-{uuid.uuid4().hex[:8]}"
+        xray.create_group(GroupName=group_name, FilterExpression='service("old")')
+
+        resp = xray.update_group(GroupName=group_name, FilterExpression='service("new")')
+        assert resp["Group"]["FilterExpression"] == 'service("new")'
+
+    def test_update_sampling_rule(self, xray):
+        """UpdateSamplingRule modifies an existing sampling rule."""
+        import uuid
+
+        rule_name = f"test-rule-{uuid.uuid4().hex[:8]}"
+        xray.create_sampling_rule(
+            SamplingRule={
+                "RuleName": rule_name,
+                "ResourceARN": "*",
+                "Priority": 1000,
+                "FixedRate": 0.05,
+                "ReservoirSize": 1,
+                "ServiceName": "*",
+                "ServiceType": "*",
+                "Host": "*",
+                "HTTPMethod": "*",
+                "URLPath": "*",
+                "Version": 1,
+            }
+        )
+
+        resp = xray.update_sampling_rule(
+            SamplingRuleUpdate={
+                "RuleName": rule_name,
+                "FixedRate": 0.10,
+                "ReservoirSize": 2,
+                "Host": "*",
+                "ServiceName": "*",
+                "ServiceType": "*",
+                "HTTPMethod": "*",
+                "URLPath": "*",
+                "ResourceARN": "*",
+                "Priority": 900,
+            }
+        )
+        assert resp["SamplingRuleRecord"]["SamplingRule"]["FixedRate"] == 0.10
+        assert resp["SamplingRuleRecord"]["SamplingRule"]["Priority"] == 900
+
+
+class TestXRayGapOps:
+    """Tests for XRay operations that weren't previously covered."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("xray")
+
+    def test_update_indexing_rule(self, client):
+        """UpdateIndexingRule returns the updated rule."""
+        resp = client.update_indexing_rule(
+            Name="Default",
+            Rule={"Probabilistic": {"DesiredSamplingPercentage": 5.0}},
+        )
+        assert "IndexingRule" in resp or resp["ResponseMetadata"]["HTTPStatusCode"] == 200

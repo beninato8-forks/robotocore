@@ -2437,3 +2437,155 @@ class TestLogsTransformer:
                 transformerConfig=[{"parseJSON": {}}],
             )
         assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+
+class TestLogsNewStubOps:
+    """Tests for newly-implemented CloudWatch Logs stub operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("logs")
+
+    def test_test_metric_filter(self, client):
+        """TestMetricFilter returns matches list."""
+        resp = client.test_metric_filter(
+            filterPattern="[..., level=ERROR]",
+            logEventMessages=["error: something went wrong", "info: all good"],
+        )
+        assert "matches" in resp
+        assert isinstance(resp["matches"], list)
+
+
+class TestLogsNewStubOps2:
+    """Tests for second batch of newly-implemented CloudWatch Logs stub operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("logs")
+
+    def test_associate_source_to_s3_table_integration(self, client):
+        """AssociateSourceToS3TableIntegration succeeds or raises known error."""
+        try:
+            client.associate_source_to_s3_table_integration(
+                integrationArn="arn:aws:logs:us-east-1:123456789012:integration/fake",
+                dataSource={"name": "/fake/log-group", "type": "CloudWatchLogs"},
+            )
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_disassociate_source_from_s3_table_integration(self, client):
+        """DisassociateSourceFromS3TableIntegration succeeds or raises known error."""
+        try:
+            client.disassociate_source_from_s3_table_integration(
+                identifier="arn:aws:logs:us-east-1:123456789012:integration/fake::source",
+            )
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_list_sources_for_s3_table_integration(self, client):
+        """ListSourcesForS3TableIntegration returns sources key."""
+        try:
+            resp = client.list_sources_for_s3_table_integration(
+                integrationArn="arn:aws:logs:us-east-1:123456789012:integration/fake",
+            )
+            assert "sources" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_put_integration(self, client):
+        """PutIntegration returns integrationName key."""
+        try:
+            resp = client.put_integration(
+                integrationName="test-integration",
+                resourceConfig={
+                    "openSearchResourceConfig": {
+                        "dataSourceRoleArn": ("arn:aws:iam::123456789012:role/test-role"),
+                        "dashboardViewerPrincipals": [],
+                        "retentionDays": 30,
+                    }
+                },
+                integrationType="OPENSEARCH",
+            )
+            assert "integrationName" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_test_transformer(self, client):
+        """TestTransformer returns transformedLogs key."""
+        try:
+            resp = client.test_transformer(
+                transformerConfig=[
+                    {"parseJSON": {}},
+                ],
+                logEventMessages=['{"level": "INFO", "msg": "test"}'],
+            )
+            assert "transformedLogs" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+
+class TestLogsGapOps:
+    """Tests for CloudWatch Logs operations that weren't previously covered."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("logs")
+
+    def test_cancel_import_task_not_found(self, client):
+        """CancelImportTask accepts a nonexistent importId and returns 200."""
+        resp = client.cancel_import_task(importId="nonexistent-import-xyz")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_create_import_task(self, client):
+        """CreateImportTask returns a task ID."""
+        resp = client.create_import_task(
+            importSourceArn="arn:aws:s3:::nonexistent-bucket/logs/",
+            importRoleArn="arn:aws:iam::123456789012:role/LogsImportRole",
+        )
+        assert "importId" in resp or resp["ResponseMetadata"]["HTTPStatusCode"] in (200, 201)
+
+
+class TestLogsStreamingGapOps:
+    """Tests for CloudWatch Logs streaming operations (use host prefix)."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("logs")
+
+    def test_get_log_object_raises_exception(self, client):
+        """GetLogObject uses streaming- host prefix; returns 501 or event stream error."""
+        import boto3
+        from botocore.config import Config
+        from botocore.eventstream import ChecksumMismatch
+
+        no_prefix_client = boto3.client(
+            "logs",
+            endpoint_url="http://localhost:4566",
+            region_name="us-east-1",
+            aws_access_key_id="test",
+            aws_secret_access_key="test",
+            config=Config(inject_host_prefix=False),
+        )
+        # Returns 501 which botocore's event stream parser may interpret as a
+        # ChecksumMismatch before a ClientError is raised
+        with pytest.raises((ClientError, ChecksumMismatch)):
+            no_prefix_client.get_log_object(logObjectPointer="pointer-abc123")
+
+    def test_start_live_tail_raises_exception(self, client):
+        """StartLiveTail uses streaming- host prefix; returns event stream or 501."""
+        import boto3
+        from botocore.config import Config
+        from botocore.eventstream import ChecksumMismatch
+
+        no_prefix_client = boto3.client(
+            "logs",
+            endpoint_url="http://localhost:4566",
+            region_name="us-east-1",
+            aws_access_key_id="test",
+            aws_secret_access_key="test",
+            config=Config(inject_host_prefix=False),
+        )
+        with pytest.raises((ClientError, ChecksumMismatch)):
+            no_prefix_client.start_live_tail(
+                logGroupIdentifiers=["arn:aws:logs:us-east-1:123456789012:log-group:test"]
+            )

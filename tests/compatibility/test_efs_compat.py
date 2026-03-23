@@ -552,3 +552,52 @@ class TestEFSDescribeTags:
         tag_map = {t["Key"]: t["Value"] for t in resp["Tags"]}
         assert tag_map["Env"] == "test"
         efs.delete_file_system(FileSystemId=fs_id)
+
+
+class TestEFSLegacyTagOps:
+    def test_create_tags(self, efs):
+        fs_id = _create_fs(efs)
+        efs.create_tags(FileSystemId=fs_id, Tags=[{"Key": "Env", "Value": "test"}])
+        resp = efs.describe_tags(FileSystemId=fs_id)
+        tag_map = {t["Key"]: t["Value"] for t in resp["Tags"]}
+        assert tag_map["Env"] == "test"
+        efs.delete_file_system(FileSystemId=fs_id)
+
+    def test_delete_tags(self, efs):
+        tags = [{"Key": "Env", "Value": "test"}, {"Key": "Keep", "Value": "yes"}]
+        fs_id = _create_fs(efs, Tags=tags)
+        efs.delete_tags(FileSystemId=fs_id, TagKeys=["Env"])
+        resp = efs.describe_tags(FileSystemId=fs_id)
+        tag_keys = [t["Key"] for t in resp["Tags"]]
+        assert "Env" not in tag_keys
+        assert "Keep" in tag_keys
+        efs.delete_file_system(FileSystemId=fs_id)
+
+    def test_create_replication_configuration(self, efs):
+        fs_id = _create_fs(efs)
+        try:
+            resp = efs.create_replication_configuration(
+                SourceFileSystemId=fs_id, Destinations=[{"Region": "us-west-2"}]
+            )
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+            assert "SourceFileSystemId" in resp
+        finally:
+            efs.delete_file_system(FileSystemId=fs_id)
+
+
+class TestEFSReplicationAndProtection:
+    """Test DeleteReplicationConfiguration and UpdateFileSystemProtection."""
+
+    def test_delete_replication_configuration_nonexistent(self, efs):
+        """DeleteReplicationConfiguration with nonexistent FS returns FileSystemNotFound."""
+        with pytest.raises(ClientError) as exc:
+            efs.delete_replication_configuration(SourceFileSystemId="fs-nonexistent")
+        assert exc.value.response["Error"]["Code"] == "FileSystemNotFound"
+
+    def test_update_file_system_protection_nonexistent(self, efs):
+        """UpdateFileSystemProtection with nonexistent FS returns FileSystemNotFound."""
+        with pytest.raises(ClientError) as exc:
+            efs.update_file_system_protection(
+                FileSystemId="fs-nonexistent", ReplicationOverwriteProtection="ENABLED"
+            )
+        assert exc.value.response["Error"]["Code"] == "FileSystemNotFound"

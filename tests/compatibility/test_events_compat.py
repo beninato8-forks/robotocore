@@ -2234,3 +2234,89 @@ class TestEventBridgeListRuleNamesByTargetExtended:
                 events.delete_rule(Name=rule2)
             except Exception:
                 pass  # best-effort cleanup
+
+
+class TestEventBridgeMissingGapOps:
+    """Tests for previously-missing EventBridge operations."""
+
+    def test_activate_event_source(self, events):
+        """ActivateEventSource on non-existent source returns 200 (no-op in Moto)."""
+        resp = events.activate_event_source(Name="aws.partner/test.com/123/test-source")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_deactivate_event_source(self, events):
+        """DeactivateEventSource returns 200."""
+        resp = events.deactivate_event_source(Name="aws.partner/test.com/123/test-source")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_describe_event_source_not_found(self, events):
+        """DescribeEventSource raises ResourceNotFoundException for unknown source."""
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc_info:
+            events.describe_event_source(Name="aws.partner/test.com/nonexistent/source")
+        assert exc_info.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_deauthorize_connection(self, events):
+        """DeauthorizeConnection transitions connection state to DEAUTHORIZED."""
+        name = f"test-conn-{uuid.uuid4().hex[:8]}"
+        events.create_connection(
+            Name=name,
+            AuthorizationType="API_KEY",
+            AuthParameters={
+                "ApiKeyAuthParameters": {"ApiKeyName": "x-api-key", "ApiKeyValue": "secret"}
+            },
+        )
+        resp = events.deauthorize_connection(Name=name)
+        assert resp["ConnectionState"] == "DEAUTHORIZED"
+        assert "ConnectionArn" in resp
+        events.delete_connection(Name=name)
+
+    def test_create_and_delete_endpoint(self, events):
+        """CreateEndpoint / DeleteEndpoint lifecycle."""
+        name = f"ep-{uuid.uuid4().hex[:8]}"
+        resp = events.create_endpoint(
+            Name=name,
+            RoutingConfig={
+                "FailoverConfig": {
+                    "Primary": {"HealthCheck": "arn:aws:route53:::healthcheck/abc123"},
+                    "Secondary": {"Route": "us-west-2"},
+                }
+            },
+            EventBuses=[
+                {"EventBusArn": "arn:aws:events:us-east-1:123456789012:event-bus/default"},
+                {"EventBusArn": "arn:aws:events:us-west-2:123456789012:event-bus/default"},
+            ],
+        )
+        assert resp["State"] == "ACTIVE"
+        assert "Arn" in resp
+        del_resp = events.delete_endpoint(Name=name)
+        assert del_resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_update_endpoint(self, events):
+        """UpdateEndpoint modifies endpoint routing config."""
+        name = f"ep-{uuid.uuid4().hex[:8]}"
+        events.create_endpoint(
+            Name=name,
+            RoutingConfig={
+                "FailoverConfig": {
+                    "Primary": {"HealthCheck": "arn:aws:route53:::healthcheck/abc"},
+                    "Secondary": {"Route": "us-west-2"},
+                }
+            },
+            EventBuses=[
+                {"EventBusArn": "arn:aws:events:us-east-1:123456789012:event-bus/default"},
+                {"EventBusArn": "arn:aws:events:us-west-2:123456789012:event-bus/default"},
+            ],
+        )
+        resp = events.update_endpoint(
+            Name=name,
+            RoutingConfig={
+                "FailoverConfig": {
+                    "Primary": {"HealthCheck": "arn:aws:route53:::healthcheck/xyz"},
+                    "Secondary": {"Route": "eu-west-1"},
+                }
+            },
+        )
+        assert "Arn" in resp
+        events.delete_endpoint(Name=name)

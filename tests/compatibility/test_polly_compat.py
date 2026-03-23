@@ -13,6 +13,25 @@ def polly_client():
 
 
 @pytest.fixture
+def s3_bucket():
+    """Create an S3 bucket for Polly output, yield its name, then delete it."""
+    s3 = make_client("s3")
+    bucket_name = f"polly-compat-{uuid.uuid4().hex[:12]}"
+    s3.create_bucket(Bucket=bucket_name)
+    yield bucket_name
+    try:
+        # Delete all objects first
+        objects = s3.list_objects_v2(Bucket=bucket_name).get("Contents", [])
+        for obj in objects:
+            s3.delete_object(Bucket=bucket_name, Key=obj["Key"])
+        s3.delete_bucket(Bucket=bucket_name)
+    except Exception as exc:
+        import logging
+
+        logging.debug("s3_bucket cleanup failed: %s", exc)
+
+
+@pytest.fixture
 def lexicon_name(polly_client):
     """Create a lexicon, yield its name, then delete it."""
     name = f"compat{uuid.uuid4().hex[:8]}"
@@ -118,6 +137,64 @@ class TestLexicons:
         resp = polly_client.list_lexicons()
         assert "Lexicons" in resp
         assert isinstance(resp["Lexicons"], list)
+
+
+class TestSpeechSynthesisTasks:
+    """Tests for async speech synthesis task management."""
+
+    def test_start_and_get_speech_synthesis_task(self, polly_client, s3_bucket):
+        """StartSpeechSynthesisTask creates a task and GetSpeechSynthesisTask retrieves it."""
+        resp = polly_client.start_speech_synthesis_task(
+            Engine="standard",
+            OutputFormat="mp3",
+            OutputS3BucketName=s3_bucket,
+            Text="Hello world",
+            VoiceId="Joanna",
+        )
+        task = resp["SynthesisTask"]
+        assert "TaskId" in task
+        assert task["TaskStatus"] in ("scheduled", "inProgress", "completed", "failed")
+        assert "OutputUri" in task
+        assert s3_bucket in task["OutputUri"]
+
+        task_id = task["TaskId"]
+        get_resp = polly_client.get_speech_synthesis_task(TaskId=task_id)
+        get_task = get_resp["SynthesisTask"]
+        assert get_task["TaskId"] == task_id
+        assert get_task["TaskStatus"] in ("scheduled", "inProgress", "completed", "failed")
+        assert get_task["VoiceId"] == "Joanna"
+        assert get_task["OutputFormat"] == "mp3"
+
+    def test_list_speech_synthesis_tasks(self, polly_client, s3_bucket):
+        """ListSpeechSynthesisTasks returns tasks that were started."""
+        polly_client.start_speech_synthesis_task(
+            OutputFormat="mp3",
+            OutputS3BucketName=s3_bucket,
+            Text="First task",
+            VoiceId="Joanna",
+        )
+        polly_client.start_speech_synthesis_task(
+            OutputFormat="mp3",
+            OutputS3BucketName=s3_bucket,
+            Text="Second task",
+            VoiceId="Matthew",
+        )
+
+        resp = polly_client.list_speech_synthesis_tasks()
+        assert "SynthesisTasks" in resp
+        tasks = resp["SynthesisTasks"]
+        assert len(tasks) >= 2
+        for task in tasks:
+            assert "TaskId" in task
+            assert "TaskStatus" in task
+
+    def test_get_speech_synthesis_task_not_found(self, polly_client):
+        """GetSpeechSynthesisTask raises SynthesisTaskNotFoundException for unknown TaskId."""
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc:
+            polly_client.get_speech_synthesis_task(TaskId="nonexistent-task-id-xyz")
+        assert exc.value.response["Error"]["Code"] == "SynthesisTaskNotFoundException"
 
 
 class TestPollyErrors:

@@ -1072,3 +1072,125 @@ class TestWorkspacesTagOps:
             assert isinstance(resp["TagList"], list)
         except Exception as e:
             assert hasattr(e, "response") or "error" in str(e).lower()
+
+
+class TestWorkspacesGapOps:
+    """Tests for previously-missing Workspaces operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("workspaces")
+
+    def test_import_workspace_image(self, client):
+        """ImportWorkspaceImage returns an ImageId."""
+        resp = client.import_workspace_image(
+            Ec2ImageId="ami-12345678",
+            IngestionProcess="BYOL_REGULAR",
+            ImageName="test-image",
+            ImageDescription="A test image",
+        )
+        assert "ImageId" in resp
+
+
+class TestWorkspacesConnectAddInOps:
+    """Tests for Connect client add-in operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("workspaces")
+
+    def test_delete_connect_client_add_in(self, client):
+        """DeleteConnectClientAddIn returns 200 for a valid UUID add-in ID."""
+        resp = client.delete_connect_client_add_in(
+            AddInId="12345678-1234-1234-1234-123456789012",
+            ResourceId="d-1234567890",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_update_connect_client_add_in_not_found(self, client):
+        """UpdateConnectClientAddIn raises ResourceNotFoundException for nonexistent add-in."""
+        from botocore.exceptions import ClientError  # noqa: PLC0415
+
+        with pytest.raises(ClientError) as exc:
+            client.update_connect_client_add_in(
+                AddInId="12345678-1234-1234-1234-123456789012",
+                ResourceId="d-1234567890",
+                Name="TestAddIn",
+                URL="https://example.com/connect",
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+
+class TestWorkspacesImagePermissionGapOps:
+    """Tests for WorkSpaces image and client properties gap operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("workspaces")
+
+    def test_import_custom_workspace_image_returns_image_id(self, client):
+        resp = client.import_workspace_image(
+            Ec2ImageId="ami-1234567890abcdef0",
+            IngestionProcess="BYOL_REGULAR",
+            ImageName="test-image",
+            ImageDescription="Test image",
+        )
+        assert "ImageId" in resp
+        assert resp["ImageId"].startswith("wsi-")
+
+    def test_modify_client_properties_returns_response(self, client):
+        from botocore.exceptions import ClientError
+
+        # This may fail with internal error for non-existent directory
+        try:
+            resp = client.modify_client_properties(
+                ResourceId="d-1234567890",
+                ClientProperties={"ReconnectEnabled": "ENABLED"},
+            )
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] in (
+                "InvalidResourceStateException",
+                "ResourceNotFoundException",
+                "InternalError",
+            )
+
+    def test_modify_selfservice_permissions_returns_response(self, client):
+        from botocore.exceptions import ClientError
+
+        try:
+            resp = client.modify_selfservice_permissions(
+                ResourceId="d-1234567890",
+                SelfservicePermissions={
+                    "RestartWorkspace": "ENABLED",
+                    "IncreaseVolumeSize": "DISABLED",
+                    "ChangeComputeType": "DISABLED",
+                    "SwitchRunningMode": "DISABLED",
+                    "RebuildWorkspace": "DISABLED",
+                },
+            )
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] in (
+                "InvalidResourceStateException",
+                "ResourceNotFoundException",
+                "InternalError",
+            )
+
+    def test_update_workspace_image_permission_returns_response(self, client):
+        from botocore.exceptions import ClientError
+
+        try:
+            resp = client.update_workspace_image_permission(
+                ImageId="wsi-1234567890",
+                AllowCopyImage=True,
+                SharedAccountId="123456789012",
+            )
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] in (
+                "AccessDeniedException",
+                "InvalidParameterValuesException",
+                "ResourceNotFoundException",
+                "InternalError",
+            )

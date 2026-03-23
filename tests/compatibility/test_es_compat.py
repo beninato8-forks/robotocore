@@ -574,3 +574,98 @@ class TestEsVpcEndpointOperations:
                 ReservationName="test-reservation",
             )
         assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+
+class TestESGapOps:
+    """Tests for previously-missing ES operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("es")
+
+    @pytest.fixture
+    def domain(self, client):
+        name = f"es-gap-{_uid()}"
+        client.create_elasticsearch_domain(DomainName=name)
+        yield name
+        try:
+            client.delete_elasticsearch_domain(DomainName=name)
+        except Exception:
+            pass  # best-effort cleanup
+
+    def test_get_upgrade_history(self, client, domain):
+        """GetUpgradeHistory returns history list."""
+        resp = client.get_upgrade_history(DomainName=domain)
+        assert "UpgradeHistories" in resp
+
+    def test_get_upgrade_status(self, client, domain):
+        """GetUpgradeStatus returns step and status."""
+        resp = client.get_upgrade_status(DomainName=domain)
+        assert "UpgradeStep" in resp
+        assert "StepStatus" in resp
+
+    def test_cancel_elasticsearch_service_software_update(self, client, domain):
+        """CancelElasticsearchServiceSoftwareUpdate returns ServiceSoftwareOptions."""
+        resp = client.cancel_elasticsearch_service_software_update(DomainName=domain)
+        assert "ServiceSoftwareOptions" in resp
+
+    def test_start_elasticsearch_service_software_update(self, client, domain):
+        """StartElasticsearchServiceSoftwareUpdate returns ServiceSoftwareOptions."""
+        resp = client.start_elasticsearch_service_software_update(DomainName=domain)
+        assert "ServiceSoftwareOptions" in resp
+
+    def test_upgrade_elasticsearch_domain(self, client, domain):
+        """UpgradeElasticsearchDomain returns domain name and target version."""
+        resp = client.upgrade_elasticsearch_domain(
+            DomainName=domain, TargetVersion="OpenSearch_2.3"
+        )
+        assert resp["DomainName"] == domain
+        assert resp["TargetVersion"] == "OpenSearch_2.3"
+
+    def test_list_vpc_endpoint_access(self, client, domain):
+        """ListVpcEndpointAccess returns authorized principals list."""
+        resp = client.list_vpc_endpoint_access(DomainName=domain)
+        assert "AuthorizedPrincipalList" in resp
+
+    def test_list_packages_for_domain(self, client, domain):
+        """ListPackagesForDomain returns domain package details list."""
+        resp = client.list_packages_for_domain(DomainName=domain)
+        assert "DomainPackageDetailsList" in resp
+
+
+class TestESNewVPCAndCancelOps:
+    """Tests for ES operations: AuthorizeVpcEndpointAccess, RevokeVpcEndpointAccess,
+    CancelDomainConfigChange, RejectInboundCrossClusterSearchConnection."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("es")
+
+    @pytest.fixture
+    def domain(self, client):
+        name = f"es-{uuid.uuid4().hex[:8]}"
+        client.create_elasticsearch_domain(DomainName=name)
+        yield name
+        client.delete_elasticsearch_domain(DomainName=name)
+
+    def test_authorize_vpc_endpoint_access(self, client, domain):
+        """AuthorizeVpcEndpointAccess returns AuthorizedPrincipal."""
+        resp = client.authorize_vpc_endpoint_access(DomainName=domain, Account="123456789012")
+        assert "AuthorizedPrincipal" in resp
+
+    def test_revoke_vpc_endpoint_access(self, client, domain):
+        """RevokeVpcEndpointAccess returns 200."""
+        resp = client.revoke_vpc_endpoint_access(DomainName=domain, Account="123456789012")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_cancel_domain_config_change(self, client, domain):
+        """CancelDomainConfigChange returns CancelledChangeIds."""
+        resp = client.cancel_domain_config_change(DomainName=domain, DryRun=True)
+        assert "CancelledChangeIds" in resp
+
+    def test_reject_inbound_cross_cluster_search_connection(self, client):
+        """RejectInboundCrossClusterSearchConnection returns 200."""
+        resp = client.reject_inbound_cross_cluster_search_connection(
+            CrossClusterSearchConnectionId="conn-id-test"
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200

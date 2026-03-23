@@ -1162,6 +1162,28 @@ def _error(code: str, message: str, status: int, use_json: bool) -> Response:
     return Response(content=xml, status_code=status, media_type="text/xml")
 
 
+def _put_data_protection_policy(
+    store: SnsStore, params: dict, region: str, account_id: str, request: Request
+) -> dict:
+    resource_arn = params.get("ResourceArn", "")
+    topic = store.get_topic(resource_arn)
+    if not topic:
+        raise SnsError("NotFound", f"Topic {resource_arn} not found", 404)
+    policy = params.get("DataProtectionPolicy", "")
+    topic.attributes["DataProtectionPolicy"] = policy
+    return {}
+
+
+def _get_data_protection_policy(
+    store: SnsStore, params: dict, region: str, account_id: str, request: Request
+) -> dict:
+    resource_arn = params.get("ResourceArn", "")
+    topic = store.get_topic(resource_arn)
+    if not topic:
+        raise SnsError("NotFound", f"Topic {resource_arn} not found", 404)
+    return {"DataProtectionPolicy": topic.attributes.get("DataProtectionPolicy", "")}
+
+
 _ACTION_MAP: dict[str, Callable] = {
     "CreateTopic": _create_topic,
     "DeleteTopic": _delete_topic,
@@ -1192,4 +1214,6 @@ _ACTION_MAP: dict[str, Callable] = {
     "SetEndpointAttributes": _set_endpoint_attributes,
     "DeleteEndpoint": _delete_endpoint,
     "ListEndpointsByPlatformApplication": _list_endpoints_by_platform_application,
+    "PutDataProtectionPolicy": _put_data_protection_policy,
+    "GetDataProtectionPolicy": _get_data_protection_policy,
 }

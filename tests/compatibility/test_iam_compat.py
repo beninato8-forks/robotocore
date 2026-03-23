@@ -5655,3 +5655,93 @@ class TestIAMSSHPublicKeyOperations:
             assert len(resp["SSHPublicKeys"]) == 0
         finally:
             iam.delete_user(UserName=user)
+
+
+class TestIAMNewStubOps:
+    """Tests for IAM stub operations: service-specific credentials, orgs access reports,
+    human readable summary, delegation requests."""
+
+    @pytest.fixture
+    def iam(self):
+        return make_client("iam")
+
+    def test_delete_service_specific_credential(self, iam):
+        """DeleteServiceSpecificCredential stub returns 200."""
+        resp = iam.delete_service_specific_credential(ServiceSpecificCredentialId="a" * 32)
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_generate_organizations_access_report(self, iam):
+        """GenerateOrganizationsAccessReport returns JobId."""
+        resp = iam.generate_organizations_access_report(EntityPath="/o-12345678901/r-abcd")
+        assert "JobId" in resp
+
+    def test_get_organizations_access_report(self, iam):
+        """GetOrganizationsAccessReport returns JobStatus."""
+        resp = iam.get_organizations_access_report(JobId="a" * 36)
+        assert "JobStatus" in resp
+
+    def test_list_policies_granting_service_access(self, iam):
+        """ListPoliciesGrantingServiceAccess returns PoliciesGrantingServiceAccess."""
+        resp = iam.list_policies_granting_service_access(
+            Arn="arn:aws:iam::123456789012:user/testuser",
+            ServiceNamespaces=["s3"],
+        )
+        assert "PoliciesGrantingServiceAccess" in resp
+
+    def test_get_human_readable_summary(self, iam):
+        """GetHumanReadableSummary returns SummaryState."""
+        resp = iam.get_human_readable_summary(EntityArn="arn:aws:iam::123456789012:user/testuser")
+        assert "SummaryState" in resp
+
+    def test_accept_delegation_request(self, iam):
+        """AcceptDelegationRequest stub returns 200."""
+        resp = iam.accept_delegation_request(DelegationRequestId="a" * 16)
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_reject_delegation_request(self, iam):
+        """RejectDelegationRequest stub returns 200."""
+        resp = iam.reject_delegation_request(DelegationRequestId="a" * 16)
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_associate_delegation_request(self, iam):
+        """AssociateDelegationRequest stub returns 200."""
+        resp = iam.associate_delegation_request(DelegationRequestId="a" * 16)
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_update_delegation_request(self, iam):
+        """UpdateDelegationRequest stub returns 200."""
+        resp = iam.update_delegation_request(DelegationRequestId="a" * 16)
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_send_delegation_token(self, iam):
+        """SendDelegationToken stub returns 200."""
+        resp = iam.send_delegation_token(DelegationRequestId="a" * 16)
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_get_delegation_request(self, iam):
+        """GetDelegationRequest stub returns DelegationRequest."""
+        resp = iam.get_delegation_request(DelegationRequestId="a" * 16)
+        assert "DelegationRequest" in resp
+
+    def test_reset_service_specific_credential(self, iam):
+        """ResetServiceSpecificCredential stub returns 200."""
+        resp = iam.reset_service_specific_credential(ServiceSpecificCredentialId="a" * 32)
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_update_service_specific_credential(self, iam):
+        """UpdateServiceSpecificCredential stub returns 200."""
+        resp = iam.update_service_specific_credential(
+            ServiceSpecificCredentialId="a" * 32, Status="Inactive"
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_create_delegation_request(self, iam):
+        """CreateDelegationRequest stub returns DelegationRequestId."""
+        resp = iam.create_delegation_request(
+            Description="test delegation",
+            Permissions={"PolicyTemplateArn": "arn:aws:iam::aws:policy/ReadOnlyAccess"},
+            RequestorWorkflowId="wf-12345678901234567890",
+            NotificationChannel="arn:aws:sns:us-east-1:123456789012:test-topic",
+            SessionDuration=3600,
+        )
+        assert "DelegationRequestId" in resp

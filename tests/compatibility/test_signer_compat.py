@@ -325,3 +325,30 @@ class TestSignerTagOperations:
             assert resp["tags"]["added"] == "later"
         finally:
             signer.cancel_signing_profile(profileName=name)
+
+
+class TestSignerGetRevocationStatus:
+    """Test GetRevocationStatus which uses data- endpoint prefix."""
+
+    def test_get_revocation_status_returns_200(self):
+        import datetime
+
+        import boto3
+        from botocore.config import Config
+
+        client = boto3.client(
+            "signer",
+            endpoint_url="http://localhost:4566",
+            region_name="us-east-1",
+            aws_access_key_id="test",
+            aws_secret_access_key="test",
+            config=Config(inject_host_prefix=False),
+        )
+        resp = client.get_revocation_status(
+            signatureTimestamp=datetime.datetime(2024, 1, 1),
+            platformId="AWSLambda-SHA384-ECDSA",
+            profileVersionArn="arn:aws:signer:us-east-1:123456789012:signing-profiles/p/abc123def456",
+            jobArn="arn:aws:signer:us-east-1:123456789012:/signing-jobs/job1",
+            certificateHashes=["abc123def456abc123def456abc123def456abc123def456abc123def456abc1"],
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200

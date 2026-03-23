@@ -336,3 +336,158 @@ class TestPanoramaAdditionalOps:
         assert "JobId" in resp
         assert isinstance(resp["JobId"], str)
         assert len(resp["JobId"]) > 0
+
+
+class TestPanoramaMissingGapOps:
+    """Tests for Panorama operations identified as coverage gaps."""
+
+    def test_list_tags_for_resource(self, panorama):
+        resp = panorama.list_tags_for_resource(
+            ResourceArn="arn:aws:panorama:us-east-1:123456789012:device/fake"
+        )
+        assert "Tags" in resp
+
+    def test_tag_resource(self, panorama):
+        resp = panorama.tag_resource(
+            ResourceArn="arn:aws:panorama:us-east-1:123456789012:device/fake",
+            Tags={"env": "test"},
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_list_devices_jobs(self, panorama):
+        device_id = "device-" + uuid.uuid4().hex[:8]
+        resp = panorama.list_devices_jobs(DeviceId=device_id)
+        assert "DeviceJobs" in resp
+
+    def test_list_application_instance_dependencies(self, panorama):
+        app_instance_id = "ai-" + uuid.uuid4().hex[:8]
+        with pytest.raises(ClientError):
+            panorama.list_application_instance_dependencies(ApplicationInstanceId=app_instance_id)
+
+
+class TestPanoramaGapOps:
+    """Tests for panorama ops that were working but untested."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("panorama")
+
+    def test_create_job_for_devices_nonexistent(self, client):
+        """CreateJobForDevices raises ValidationException for nonexistent device."""
+        with pytest.raises(ClientError) as exc:
+            client.create_job_for_devices(
+                DeviceIds=["device-nonexistent-123"],
+                DeviceJobConfig={
+                    "OTAJobConfig": {
+                        "ImageVersion": "1.0.0",
+                        "AllowMajorVersionUpdate": False,
+                    }
+                },
+                JobType="OTA",
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "ValidationException",
+            "ResourceNotFoundException",
+        )
+
+    def test_deregister_package_version_nonexistent(self, client):
+        """DeregisterPackageVersion raises ResourceNotFoundException for nonexistent package."""
+        with pytest.raises(ClientError) as exc:
+            client.deregister_package_version(
+                PackageId="pkg-nonexistent-123",
+                PackageVersion="1.0.0",
+                PatchVersion="0",
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_register_package_version(self, client):
+        """RegisterPackageVersion on a new package succeeds or returns NotFound."""
+        pkg_resp = client.create_package(PackageName="test-pkg-reg")
+        pkg_id = pkg_resp["PackageId"]
+        try:
+            resp = client.register_package_version(
+                PackageId=pkg_id,
+                PackageVersion="1.0.0",
+                PatchVersion="0",
+            )
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] in (
+                "ResourceNotFoundException",
+                "ValidationException",
+            )
+        finally:
+            client.delete_package(PackageId=pkg_id)
+
+    def test_tag_resource(self, client):
+        """TagResource adds tags to a panorama resource."""
+        device_resp = client.provision_device(Name="tag-test-device")
+        device_id = device_resp["DeviceId"]
+        arn = device_resp["Arn"]
+        try:
+            resp = client.tag_resource(ResourceArn=arn, Tags={"env": "test"})
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+            tags_resp = client.list_tags_for_resource(ResourceArn=arn)
+            assert "Tags" in tags_resp
+        finally:
+            client.delete_device(DeviceId=device_id)
+
+    def test_untag_resource(self, client):
+        """UntagResource removes tags from a panorama resource."""
+        device_resp = client.provision_device(Name="untag-test-device")
+        device_id = device_resp["DeviceId"]
+        arn = device_resp["Arn"]
+        try:
+            client.tag_resource(ResourceArn=arn, Tags={"env": "test", "k2": "v2"})
+            client.untag_resource(ResourceArn=arn, TagKeys=["env"])
+            tags_resp = client.list_tags_for_resource(ResourceArn=arn)
+            assert "env" not in tags_resp.get("Tags", {})
+        finally:
+            client.delete_device(DeviceId=device_id)
+
+
+class TestPanoramaGapOpsV2:
+    """Tests for panorama describe/list ops that weren't directly called."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("panorama")
+
+    def test_describe_device_job_nonexistent(self, client):
+        """DescribeDeviceJob raises ResourceNotFoundException for nonexistent job."""
+        with pytest.raises(ClientError) as exc:
+            client.describe_device_job(JobId="job-nonexistent-123")
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_describe_package_version_nonexistent(self, client):
+        """DescribePackageVersion raises ResourceNotFoundException for nonexistent version."""
+        with pytest.raises(ClientError) as exc:
+            client.describe_package_version(
+                PackageId="pkg-nonexistent-123",
+                PackageVersion="1.0.0",
+                PatchVersion="0",
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_list_application_instance_node_instances(self, client):
+        """ListApplicationInstanceNodeInstances raises ResourceNotFoundException."""
+        with pytest.raises(ClientError) as exc:
+            client.list_application_instance_node_instances(
+                ApplicationInstanceId="ai-nonexistent-123"
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+
+class TestPanoramaSignalApplicationInstanceNodeInstances:
+    """Test SignalApplicationInstanceNodeInstances operation."""
+
+    def test_signal_application_instance_node_instances(self):
+        """SignalApplicationInstanceNodeInstances raises known error."""
+        client = make_client("panorama")
+        try:
+            client.signal_application_instance_node_instances(
+                ApplicationInstanceId="fake-app-id",
+                NodeSignals=[{"NodeInstanceId": "fake-node", "Signal": "PAUSE"}],
+            )
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None

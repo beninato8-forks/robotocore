@@ -1222,3 +1222,253 @@ class TestRekognitionUserOperations:
             assert isinstance(resp["Users"], list)
         finally:
             rekognition.delete_collection(CollectionId=col_id)
+
+    def test_create_and_delete_user(self, rekognition):
+        """CreateUser adds a user, ListUsers sees it, DeleteUser removes it."""
+        col_id = _unique("cu")
+        rekognition.create_collection(CollectionId=col_id)
+        try:
+            rekognition.create_user(CollectionId=col_id, UserId="user-abc")
+            users = rekognition.list_users(CollectionId=col_id)
+            assert "Users" in users
+            user_ids = [u["UserId"] for u in users["Users"]]
+            assert "user-abc" in user_ids
+            # Delete
+            rekognition.delete_user(CollectionId=col_id, UserId="user-abc")
+            users2 = rekognition.list_users(CollectionId=col_id)
+            user_ids2 = [u["UserId"] for u in users2["Users"]]
+            assert "user-abc" not in user_ids2
+        finally:
+            rekognition.delete_collection(CollectionId=col_id)
+
+    def test_create_user_duplicate_raises(self, rekognition):
+        """CreateUser with duplicate UserId raises ResourceAlreadyExistsException."""
+        from botocore.exceptions import ClientError
+
+        col_id = _unique("cudup")
+        rekognition.create_collection(CollectionId=col_id)
+        try:
+            rekognition.create_user(CollectionId=col_id, UserId="dup-user")
+            with pytest.raises(ClientError) as exc_info:
+                rekognition.create_user(CollectionId=col_id, UserId="dup-user")
+            assert "ResourceAlreadyExistsException" in str(exc_info.value)
+        finally:
+            rekognition.delete_collection(CollectionId=col_id)
+
+    def test_delete_nonexistent_user_raises(self, rekognition):
+        """DeleteUser with nonexistent UserId raises ResourceNotFoundException."""
+        from botocore.exceptions import ClientError
+
+        col_id = _unique("dnu")
+        rekognition.create_collection(CollectionId=col_id)
+        try:
+            with pytest.raises(ClientError) as exc_info:
+                rekognition.delete_user(CollectionId=col_id, UserId="ghost-user")
+            assert "ResourceNotFoundException" in str(exc_info.value)
+        finally:
+            rekognition.delete_collection(CollectionId=col_id)
+
+    def test_search_users(self, rekognition):
+        """SearchUsers returns UserMatches key."""
+        col_id = _unique("su")
+        rekognition.create_collection(CollectionId=col_id)
+        try:
+            rekognition.create_user(CollectionId=col_id, UserId="search-user-1")
+            rekognition.create_user(CollectionId=col_id, UserId="search-user-2")
+            resp = rekognition.search_users(CollectionId=col_id, UserId="search-user-1")
+            assert "UserMatches" in resp
+            assert isinstance(resp["UserMatches"], list)
+            assert "FaceModelVersion" in resp
+        finally:
+            rekognition.delete_collection(CollectionId=col_id)
+
+    def test_search_users_by_image(self, rekognition):
+        """SearchUsersByImage returns UserMatches and SearchedFace."""
+        col_id = _unique("subi")
+        rekognition.create_collection(CollectionId=col_id)
+        try:
+            rekognition.create_user(CollectionId=col_id, UserId="img-user")
+            resp = rekognition.search_users_by_image(
+                CollectionId=col_id,
+                Image={"Bytes": _TINY_JPEG},
+            )
+            assert "UserMatches" in resp
+            assert isinstance(resp["UserMatches"], list)
+            assert "SearchedFace" in resp
+            assert "FaceModelVersion" in resp
+        finally:
+            rekognition.delete_collection(CollectionId=col_id)
+
+    def test_associate_faces(self, rekognition):
+        """AssociateFaces links indexed faces with a user."""
+        col_id = _unique("af")
+        rekognition.create_collection(CollectionId=col_id)
+        try:
+            idx = rekognition.index_faces(CollectionId=col_id, Image={"Bytes": _TINY_JPEG})
+            face_id = idx["FaceRecords"][0]["Face"]["FaceId"]
+            rekognition.create_user(CollectionId=col_id, UserId="face-user")
+            resp = rekognition.associate_faces(
+                CollectionId=col_id,
+                UserId="face-user",
+                FaceIds=[face_id],
+            )
+            assert "AssociatedFaces" in resp
+            assert isinstance(resp["AssociatedFaces"], list)
+            assert len(resp["AssociatedFaces"]) >= 1
+            assert resp["AssociatedFaces"][0]["FaceId"] == face_id
+            assert "UserStatus" in resp
+        finally:
+            rekognition.delete_collection(CollectionId=col_id)
+
+    def test_disassociate_faces(self, rekognition):
+        """DisassociateFaces removes association between face and user."""
+        col_id = _unique("df")
+        rekognition.create_collection(CollectionId=col_id)
+        try:
+            idx = rekognition.index_faces(CollectionId=col_id, Image={"Bytes": _TINY_JPEG})
+            face_id = idx["FaceRecords"][0]["Face"]["FaceId"]
+            rekognition.create_user(CollectionId=col_id, UserId="face-user-dis")
+            rekognition.associate_faces(
+                CollectionId=col_id,
+                UserId="face-user-dis",
+                FaceIds=[face_id],
+            )
+            resp = rekognition.disassociate_faces(
+                CollectionId=col_id,
+                UserId="face-user-dis",
+                FaceIds=[face_id],
+            )
+            assert "DisassociatedFaces" in resp
+            assert isinstance(resp["DisassociatedFaces"], list)
+            assert len(resp["DisassociatedFaces"]) >= 1
+            assert resp["DisassociatedFaces"][0]["FaceId"] == face_id
+            assert "UserStatus" in resp
+        finally:
+            rekognition.delete_collection(CollectionId=col_id)
+
+
+class TestRekognitionStreamProcessorUpdate:
+    """Tests for UpdateStreamProcessor operation."""
+
+    def test_update_stream_processor(self, rekognition):
+        """UpdateStreamProcessor succeeds and returns empty response."""
+        col_id = _unique("spup")
+        sp_name = _unique("spup")
+        rekognition.create_collection(CollectionId=col_id)
+        try:
+            rekognition.create_stream_processor(
+                Name=sp_name,
+                Input={
+                    "KinesisVideoStream": {"Arn": "arn:aws:kinesisvideo:us-east-1:123:stream/s/0"}
+                },
+                Output={"KinesisDataStream": {"Arn": "arn:aws:kinesis:us-east-1:123:stream/out"}},
+                RoleArn="arn:aws:iam::123456789012:role/test",
+                Settings={"FaceSearch": {"CollectionId": col_id, "FaceMatchThreshold": 80.0}},
+            )
+            resp = rekognition.update_stream_processor(Name=sp_name)
+            # AWS returns empty object for this operation
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        finally:
+            rekognition.delete_stream_processor(Name=sp_name)
+            rekognition.delete_collection(CollectionId=col_id)
+
+    def test_update_stream_processor_nonexistent_raises(self, rekognition):
+        """UpdateStreamProcessor with nonexistent name raises ResourceNotFoundException."""
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc_info:
+            rekognition.update_stream_processor(Name=_unique("nope"))
+        assert "ResourceNotFoundException" in str(exc_info.value)
+
+
+class TestRekognitionNewStubOps:
+    """Tests for newly added stub operations: media analysis, project policies, copy version."""
+
+    def test_list_media_analysis_jobs(self, rekognition):
+        """ListMediaAnalysisJobs returns MediaAnalysisJobs list."""
+        resp = rekognition.list_media_analysis_jobs()
+        assert "MediaAnalysisJobs" in resp
+        assert isinstance(resp["MediaAnalysisJobs"], list)
+
+    def test_start_media_analysis_job(self, rekognition):
+        """StartMediaAnalysisJob returns JobId."""
+        resp = rekognition.start_media_analysis_job(
+            OperationsConfig={"DetectModerationLabels": {"MinConfidence": 50.0}},
+            Input={"S3Object": {"Bucket": "test-bucket", "Name": "test-key"}},
+            OutputConfig={"S3Bucket": "output-bucket"},
+        )
+        assert "JobId" in resp
+        assert resp["JobId"]
+
+    def test_get_media_analysis_job(self, rekognition):
+        """GetMediaAnalysisJob returns JobId and Status keys."""
+        resp = rekognition.get_media_analysis_job(JobId="fake-job-id-123")
+        assert "JobId" in resp
+        assert "Status" in resp
+
+    def test_list_project_policies(self, rekognition):
+        """ListProjectPolicies returns ProjectPolicies list."""
+        resp = rekognition.list_project_policies(
+            ProjectArn="arn:aws:rekognition:us-east-1:123456789012:project/fake/1234"
+        )
+        assert "ProjectPolicies" in resp
+        assert isinstance(resp["ProjectPolicies"], list)
+
+    def test_put_project_policy(self, rekognition):
+        """PutProjectPolicy returns PolicyRevisionId."""
+        resp = rekognition.put_project_policy(
+            ProjectArn="arn:aws:rekognition:us-east-1:123456789012:project/fake/1234",
+            PolicyName="TestPolicy",
+            PolicyDocument='{"Version":"2012-10-17","Statement":[]}',
+        )
+        assert "PolicyRevisionId" in resp
+
+    def test_delete_project_policy(self, rekognition):
+        """DeleteProjectPolicy succeeds with empty response."""
+        resp = rekognition.delete_project_policy(
+            ProjectArn="arn:aws:rekognition:us-east-1:123456789012:project/fake/1234",
+            PolicyName="TestPolicy",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_copy_project_version(self, rekognition):
+        """CopyProjectVersion returns ProjectVersionArn."""
+        resp = rekognition.copy_project_version(
+            SourceProjectArn="arn:aws:rekognition:us-east-1:123456789012:project/src/1234",
+            SourceProjectVersionArn=(
+                "arn:aws:rekognition:us-east-1:123456789012:project/src/version/v1/1234"
+            ),
+            DestinationProjectArn="arn:aws:rekognition:us-east-1:123456789012:project/dst/1234",
+            VersionName="v1-copy",
+            OutputConfig={"S3Bucket": "output-bucket", "S3KeyPrefix": "prefix"},
+        )
+        assert "ProjectVersionArn" in resp
+
+    def test_update_dataset_entries(self, rekognition):
+        """UpdateDatasetEntries succeeds with empty response."""
+        resp = rekognition.update_dataset_entries(
+            DatasetArn=(
+                "arn:aws:rekognition:us-east-1:123456789012:project/fake/dataset/train/1234"
+            ),
+            Changes={"GroundTruth": b"{}"},
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestRekognitionGapOps:
+    """Tests for Rekognition operations that weren't previously covered."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("rekognition")
+
+    def test_distribute_dataset_entries(self, client):
+        """DistributeDatasetEntries returns 200 with valid dataset ARNs."""
+        base = "arn:aws:rekognition:us-east-1:123456789012:project/testproj/dataset"
+        resp = client.distribute_dataset_entries(
+            Datasets=[
+                {"Arn": f"{base}/TRAIN/1"},
+                {"Arn": f"{base}/TEST/2"},
+            ]
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200

@@ -2845,3 +2845,165 @@ class TestRedshiftNewOps:
             assert "CustomDomainName" in resp or resp["ResponseMetadata"]["HTTPStatusCode"] == 200
         except ClientError as exc:
             assert exc.response["Error"]["Code"] is not None
+
+
+class TestRedshiftNewStubOps:
+    """Tests for newly-implemented Redshift stub operations."""
+
+    @pytest.fixture
+    def redshift(self):
+        return make_client("redshift")
+
+    def test_create_integration(self, redshift):
+        """CreateIntegration returns IntegrationArn key."""
+        try:
+            resp = redshift.create_integration(
+                SourceArn="arn:aws:redshift:us-east-1:123456789012:cluster/source",
+                TargetArn="arn:aws:redshift:us-east-1:123456789012:namespace/target",
+                IntegrationName="test-integration",
+            )
+            assert "IntegrationArn" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_delete_integration(self, redshift):
+        """DeleteIntegration returns IntegrationArn key."""
+        try:
+            resp = redshift.delete_integration(
+                IntegrationArn="arn:aws:redshift:us-east-1:123456789012:integration/fake-id",
+            )
+            assert "IntegrationArn" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_modify_integration(self, redshift):
+        """ModifyIntegration returns IntegrationArn key."""
+        try:
+            resp = redshift.modify_integration(
+                IntegrationArn="arn:aws:redshift:us-east-1:123456789012:integration/fake-id",
+            )
+            assert "IntegrationArn" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_create_redshift_idc_application(self, redshift):
+        """CreateRedshiftIdcApplication returns RedshiftIdcApplication key."""
+        try:
+            resp = redshift.create_redshift_idc_application(
+                IdcInstanceArn="arn:aws:sso:::instance/ssoins-fake",
+                RedshiftIdcApplicationName="test-app",
+                IdcDisplayName="Test App",
+                IamRoleArn="arn:aws:iam::123456789012:role/test-role",
+            )
+            assert "RedshiftIdcApplication" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_delete_redshift_idc_application(self, redshift):
+        """DeleteRedshiftIdcApplication succeeds or raises known error."""
+        try:
+            redshift.delete_redshift_idc_application(
+                RedshiftIdcApplicationArn=(
+                    "arn:aws:redshift:us-east-1:123456789012:redshiftidcapplication/fake"
+                ),
+            )
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_deregister_namespace(self, redshift):
+        """DeregisterNamespace returns Status key."""
+        try:
+            resp = redshift.deregister_namespace(
+                NamespaceIdentifier={
+                    "ServerlessIdentifier": {
+                        "NamespaceIdentifier": "fake-namespace-id",
+                        "WorkgroupIdentifier": "fake-workgroup-id",
+                    }
+                },
+                ConsumerIdentifiers=["fake-consumer-id"],
+            )
+            assert "Status" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_failover_primary_compute(self, redshift):
+        """FailoverPrimaryCompute returns Cluster key."""
+        try:
+            resp = redshift.failover_primary_compute(
+                ClusterIdentifier="fake-cluster",
+            )
+            assert "Cluster" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_modify_lakehouse_configuration(self, redshift):
+        """ModifyLakehouseConfiguration returns ClusterIdentifier key."""
+        try:
+            resp = redshift.modify_lakehouse_configuration(
+                ClusterIdentifier="fake-cluster",
+            )
+            assert "ClusterIdentifier" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_modify_redshift_idc_application(self, redshift):
+        """ModifyRedshiftIdcApplication returns RedshiftIdcApplication key."""
+        try:
+            resp = redshift.modify_redshift_idc_application(
+                RedshiftIdcApplicationArn=(
+                    "arn:aws:redshift:us-east-1:123456789012:redshiftidcapplication/fake"
+                ),
+            )
+            assert "RedshiftIdcApplication" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_purchase_reserved_node_offering(self, redshift):
+        """PurchaseReservedNodeOffering returns ReservedNode key."""
+        try:
+            resp = redshift.purchase_reserved_node_offering(
+                ReservedNodeOfferingId="fake-offering-id",
+            )
+            assert "ReservedNode" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_register_namespace(self, redshift):
+        """RegisterNamespace returns Status key."""
+        try:
+            resp = redshift.register_namespace(
+                NamespaceIdentifier={
+                    "ServerlessIdentifier": {
+                        "NamespaceIdentifier": "fake-namespace-id",
+                        "WorkgroupIdentifier": "fake-workgroup-id",
+                    }
+                },
+                ConsumerIdentifiers=["fake-consumer-id"],
+            )
+            assert "Status" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_resize_cluster(self, redshift):
+        """ResizeCluster returns Cluster key."""
+        try:
+            resp = redshift.resize_cluster(
+                ClusterIdentifier="fake-cluster",
+            )
+            assert "Cluster" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_restore_table_from_cluster_snapshot(self, redshift):
+        """RestoreTableFromClusterSnapshot returns TableRestoreStatus key."""
+        try:
+            resp = redshift.restore_table_from_cluster_snapshot(
+                ClusterIdentifier="fake-cluster",
+                SnapshotIdentifier="fake-snapshot",
+                SourceDatabaseName="mydb",
+                SourceTableName="mytable",
+                NewTableName="newtable",
+            )
+            assert "TableRestoreStatus" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None

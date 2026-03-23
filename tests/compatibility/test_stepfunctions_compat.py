@@ -1479,3 +1479,95 @@ class TestStepFunctionsAliases:
         with pytest.raises(ClientError) as exc_info:
             sfn.describe_state_machine_alias(stateMachineAliasArn=fake_arn)
         assert exc_info.value.response["Error"]["Code"] == "ResourceNotFound"
+
+
+class TestStepFunctionsMissingGapOps:
+    """Tests for previously-missing StepFunctions operations."""
+
+    def test_get_activity_task_returns_empty(self, sfn):
+        """GetActivityTask returns taskToken and input (empty when no tasks queued)."""
+        name = f"act-{uuid.uuid4().hex[:8]}"
+        create_resp = sfn.create_activity(name=name)
+        activity_arn = create_resp["activityArn"]
+        resp = sfn.get_activity_task(activityArn=activity_arn)
+        assert "taskToken" in resp
+        assert "input" in resp
+        sfn.delete_activity(activityArn=activity_arn)
+
+    def test_redrive_execution_nonexistent_raises(self, sfn):
+        """RedriveExecution raises ExecutionDoesNotExist for unknown execution ARN."""
+        from botocore.exceptions import ClientError
+
+        fake_arn = "arn:aws:states:us-east-1:123456789012:execution:nonexistent-sm:fake-exec"
+        with pytest.raises(ClientError) as exc_info:
+            sfn.redrive_execution(executionArn=fake_arn)
+        assert exc_info.value.response["Error"]["Code"] == "ExecutionDoesNotExist"
+
+
+class TestStepFunctionsAliasGapOps:
+    """Tests for StateMachineAlias CRUD operations."""
+
+    def test_create_update_delete_alias(self, sfn):
+        """Full alias lifecycle: create, update, delete."""
+        import json as _json
+
+        sm = sfn.create_state_machine(
+            name=f"sm-alias-{uuid.uuid4().hex[:8]}",
+            definition=_json.dumps(
+                {
+                    "Comment": "test",
+                    "StartAt": "Pass",
+                    "States": {"Pass": {"Type": "Pass", "End": True}},
+                }
+            ),
+            roleArn="arn:aws:iam::123456789012:role/test-role",
+        )
+        sm_arn = sm["stateMachineArn"]
+        ver = sfn.publish_state_machine_version(stateMachineArn=sm_arn)
+        ver_arn = ver["stateMachineVersionArn"]
+
+        alias = sfn.create_state_machine_alias(
+            name="test-alias",
+            routingConfiguration=[{"stateMachineVersionArn": ver_arn, "weight": 100}],
+        )
+        alias_arn = alias["stateMachineAliasArn"]
+        assert "stateMachineAliasArn" in alias
+
+        update_resp = sfn.update_state_machine_alias(
+            stateMachineAliasArn=alias_arn,
+            routingConfiguration=[{"stateMachineVersionArn": ver_arn, "weight": 100}],
+        )
+        assert "updateDate" in update_resp
+
+        sfn.delete_state_machine_alias(stateMachineAliasArn=alias_arn)
+        sfn.delete_state_machine_version(stateMachineVersionArn=ver_arn)
+        sfn.delete_state_machine(stateMachineArn=sm_arn)
+
+
+class TestStepFunctionsTestStateGapOp:
+    """Test TestState — uses sync- host prefix and returns 501."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("stepfunctions")
+
+    def test_test_state_not_implemented(self, client):
+        import boto3
+        from botocore.config import Config
+        from botocore.exceptions import ClientError
+
+        no_prefix_client = boto3.client(
+            "stepfunctions",
+            endpoint_url="http://localhost:4566",
+            region_name="us-east-1",
+            aws_access_key_id="test",
+            aws_secret_access_key="test",
+            config=Config(inject_host_prefix=False),
+        )
+        with pytest.raises(ClientError) as exc:
+            no_prefix_client.test_state(definition='{"Comment": "Test"}')
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "InvalidDefinition",
+            "StateMachineDoesNotExist",
+        )

@@ -172,11 +172,18 @@ def analyze_service(service_name: str, botocore_name: str, test_file: Path) -> d
     tested_ops = get_tested_operations(test_file)
     relevant_ops = [op for op in all_ops if op not in SKIP_OPERATIONS]
 
+    # Build a lowercase set for case-insensitive comparison (handles acronyms like ACLs, ARNs)
+    tested_ops_lower = {t.lower() for t in tested_ops}
+
     covered = []
     missing = []
     for op in relevant_ops:
         snake = _to_snake_case(op)
-        if op in tested_ops or snake in {_to_snake_case(t) for t in tested_ops}:
+        if (
+            op in tested_ops
+            or op.lower() in tested_ops_lower
+            or snake in {_to_snake_case(t) for t in tested_ops}
+        ):
             covered.append(op)
         else:
             missing.append(op)

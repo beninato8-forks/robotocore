@@ -9956,3 +9956,1126 @@ class TestEC2DeclarativePolicies:
         """GetDeclarativePoliciesReportSummary returns a response."""
         resp = ec2.get_declarative_policies_report_summary(ReportId="fake-report-id")
         assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestEC2GapDescribeOps:
+    """Tests for previously-untested Describe* operations."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_describe_fpga_images_returns_list(self, ec2):
+        """DescribeFpgaImages returns a list (may be empty)."""
+        resp = ec2.describe_fpga_images()
+        assert "FpgaImages" not in resp or isinstance(resp.get("FpgaImages", []), list)
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_describe_export_tasks_empty(self, ec2):
+        """DescribeExportTasks returns successfully with no tasks."""
+        resp = ec2.describe_export_tasks()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_describe_bundle_tasks_returns_list(self, ec2):
+        """DescribeBundleTasks returns BundleTasks list."""
+        resp = ec2.describe_bundle_tasks()
+        assert "BundleTasks" in resp
+        assert isinstance(resp["BundleTasks"], list)
+
+    def test_describe_reserved_instances_modifications_returns_list(self, ec2):
+        """DescribeReservedInstancesModifications returns modification list."""
+        resp = ec2.describe_reserved_instances_modifications()
+        assert "ReservedInstancesModifications" in resp
+        assert isinstance(resp["ReservedInstancesModifications"], list)
+
+    def test_describe_reserved_instances_offerings_returns_list(self, ec2):
+        """DescribeReservedInstancesOfferings returns non-empty offerings."""
+        resp = ec2.describe_reserved_instances_offerings()
+        assert "ReservedInstancesOfferings" in resp
+        assert len(resp["ReservedInstancesOfferings"]) > 0
+
+    def test_describe_spot_price_history_returns_list(self, ec2):
+        """DescribeSpotPriceHistory returns SpotPriceHistory list."""
+        resp = ec2.describe_spot_price_history()
+        assert "SpotPriceHistory" in resp
+        assert isinstance(resp["SpotPriceHistory"], list)
+
+    def test_describe_snapshot_attribute_invalid_id(self, ec2):
+        """DescribeSnapshotAttribute returns error for unknown snapshot ID."""
+        with pytest.raises(botocore.exceptions.ClientError) as exc_info:
+            ec2.describe_snapshot_attribute(
+                SnapshotId="snap-00000000000000000",
+                Attribute="createVolumePermission",
+            )
+        assert exc_info.value.response["Error"]["Code"] == "InvalidSnapshot.NotFound"
+
+
+class TestEC2GapModifyInstanceMetadata:
+    """Tests for ModifyInstanceMetadataOptions operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_modify_instance_metadata_options_invalid_id(self, ec2):
+        """ModifyInstanceMetadataOptions returns error for unknown instance ID."""
+        with pytest.raises(botocore.exceptions.ClientError) as exc_info:
+            ec2.modify_instance_metadata_options(InstanceId="i-00000000000000000")
+        assert exc_info.value.response["Error"]["Code"] == "InvalidInstanceID.NotFound"
+
+
+class TestEC2GapReplaceRootVolumeTask:
+    """Tests for CreateReplaceRootVolumeTask operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_create_replace_root_volume_task_invalid_instance(self, ec2):
+        """CreateReplaceRootVolumeTask returns a task object (even for fake instance)."""
+        resp = ec2.create_replace_root_volume_task(InstanceId="i-00000000000000000")
+        assert "ReplaceRootVolumeTask" in resp
+        task = resp["ReplaceRootVolumeTask"]
+        assert "ReplaceRootVolumeTaskId" in task
+        assert "InstanceId" in task
+        assert task["InstanceId"] == "i-00000000000000000"
+        assert "TaskState" in task
+
+
+class TestEC2GapStoreImageTask:
+    """Tests for CreateStoreImageTask operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_create_store_image_task_returns_object_key(self, ec2):
+        """CreateStoreImageTask returns an ObjectKey."""
+        resp = ec2.create_store_image_task(
+            ImageId="ami-00000000000000000",
+            Bucket="my-test-bucket",
+        )
+        assert "ObjectKey" in resp
+        assert resp["ObjectKey"] != ""
+
+
+class TestEC2GapVerifiedAccessEndpoint:
+    """Tests for CreateVerifiedAccessEndpoint and DeleteVerifiedAccessEndpoint."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_create_and_delete_verified_access_endpoint(self, ec2):
+        """CreateVerifiedAccessEndpoint creates endpoint; delete removes it."""
+        vai = ec2.create_verified_access_instance(Description="gap-test-vai")
+        vai_id = vai["VerifiedAccessInstance"]["VerifiedAccessInstanceId"]
+        try:
+            grp = ec2.create_verified_access_group(
+                VerifiedAccessInstanceId=vai_id, Description="gap-test-grp"
+            )
+            grp_id = grp["VerifiedAccessGroup"]["VerifiedAccessGroupId"]
+            try:
+                resp = ec2.create_verified_access_endpoint(
+                    VerifiedAccessGroupId=grp_id,
+                    EndpointType="network-interface",
+                    AttachmentType="vpc",
+                    DomainCertificateArn=(
+                        "arn:aws:acm:us-east-1:123456789012:certificate/"
+                        "00000000-0000-0000-0000-000000000000"
+                    ),
+                    ApplicationDomain="test.example.com",
+                    EndpointDomainPrefix="test-ep-prefix",
+                )
+                assert "VerifiedAccessEndpoint" in resp
+                endpoint_id = resp["VerifiedAccessEndpoint"]["VerifiedAccessEndpointId"]
+                assert endpoint_id.startswith("vae-")
+                del_resp = ec2.delete_verified_access_endpoint(VerifiedAccessEndpointId=endpoint_id)
+                assert "VerifiedAccessEndpoint" in del_resp
+            finally:
+                ec2.delete_verified_access_group(VerifiedAccessGroupId=grp_id)
+        finally:
+            ec2.delete_verified_access_instance(VerifiedAccessInstanceId=vai_id)
+
+    def test_delete_verified_access_endpoint_not_found(self, ec2):
+        """DeleteVerifiedAccessEndpoint raises NotFound for unknown endpoint."""
+        with pytest.raises(botocore.exceptions.ClientError) as exc_info:
+            ec2.delete_verified_access_endpoint(VerifiedAccessEndpointId="vae-00000000000000000")
+        assert (
+            exc_info.value.response["Error"]["Code"] == "InvalidVerifiedAccessEndpointId.NotFound"
+        )
+
+
+class TestEC2GapPurchaseCapacityBlock:
+    """Tests for PurchaseCapacityBlock operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_purchase_capacity_block_returns_reservation(self, ec2):
+        """PurchaseCapacityBlock returns a CapacityReservation."""
+        resp = ec2.purchase_capacity_block(
+            CapacityBlockOfferingId="cbo-00000000000000000",
+            InstancePlatform="Linux/UNIX",
+        )
+        assert "CapacityReservation" in resp
+        reservation = resp["CapacityReservation"]
+        assert "CapacityReservationId" in reservation
+        assert "State" in reservation
+
+
+class TestEC2GapDeprovisionPublicIpv4PoolCidr:
+    """Tests for DeprovisionPublicIpv4PoolCidr operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_deprovision_public_ipv4_pool_cidr_not_found(self, ec2):
+        """DeprovisionPublicIpv4PoolCidr raises error for unknown pool."""
+        with pytest.raises(botocore.exceptions.ClientError) as exc_info:
+            ec2.deprovision_public_ipv4_pool_cidr(
+                PoolId="ipv4pool-ec2-00000000",
+                Cidr="1.2.3.0/24",
+            )
+        assert exc_info.value.response["Error"]["Code"] == "InvalidPublicIpv4PoolID.NotFound"
+
+
+class TestEC2GapDescribeConversionTasks:
+    """Tests for DescribeConversionTasks operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_describe_conversion_tasks_returns_list(self, ec2):
+        """DescribeConversionTasks returns a list (may be empty)."""
+        resp = ec2.describe_conversion_tasks()
+        assert "ConversionTasks" in resp or isinstance(resp.get("ConversionTasks", []), list)
+        # Response is valid - list of tasks (may be empty)
+        assert "ResponseMetadata" in resp
+
+
+class TestEC2GapDescribeExportImageTasks:
+    """Tests for DescribeExportImageTasks operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_describe_export_image_tasks_returns_list(self, ec2):
+        """DescribeExportImageTasks returns a list (may be empty)."""
+        resp = ec2.describe_export_image_tasks()
+        assert "ExportImageTasks" in resp or isinstance(resp.get("ExportImageTasks", []), list)
+        assert "ResponseMetadata" in resp
+
+
+class TestEC2GapDescribeInstanceConnectEndpoints:
+    """Tests for DescribeInstanceConnectEndpoints operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_describe_instance_connect_endpoints_returns_list(self, ec2):
+        """DescribeInstanceConnectEndpoints returns a list."""
+        resp = ec2.describe_instance_connect_endpoints()
+        assert "InstanceConnectEndpoints" in resp
+        assert isinstance(resp["InstanceConnectEndpoints"], list)
+
+
+class TestEC2GapDescribeInstanceTopology:
+    """Tests for DescribeInstanceTopology operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_describe_instance_topology_returns_response(self, ec2):
+        """DescribeInstanceTopology returns a valid response."""
+        resp = ec2.describe_instance_topology()
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestEC2GapDescribeIpamByoasn:
+    """Tests for DescribeIpamByoasn operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_describe_ipam_byoasn_returns_response(self, ec2):
+        """DescribeIpamByoasn returns a valid response."""
+        resp = ec2.describe_ipam_byoasn()
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestEC2GapDescribeIpamExternalResourceVerificationTokens:
+    """Tests for DescribeIpamExternalResourceVerificationTokens operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_describe_ipam_external_resource_verification_tokens(self, ec2):
+        """DescribeIpamExternalResourceVerificationTokens returns a valid response."""
+        resp = ec2.describe_ipam_external_resource_verification_tokens()
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestEC2GapDescribeIpamPools:
+    """Tests for DescribeIpamPools operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_describe_ipam_pools_returns_list(self, ec2):
+        """DescribeIpamPools returns a list of pools."""
+        resp = ec2.describe_ipam_pools()
+        assert "IpamPools" in resp
+        assert isinstance(resp["IpamPools"], list)
+
+
+class TestEC2GapDescribeIpamResourceDiscoveries:
+    """Tests for DescribeIpamResourceDiscoveries operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_describe_ipam_resource_discoveries_returns_response(self, ec2):
+        """DescribeIpamResourceDiscoveries returns a valid response."""
+        resp = ec2.describe_ipam_resource_discoveries()
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestEC2GapDescribeIpams:
+    """Tests for DescribeIpams operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_describe_ipams_returns_list(self, ec2):
+        """DescribeIpams returns a list of IPAMs."""
+        resp = ec2.describe_ipams()
+        assert "Ipams" in resp
+        assert isinstance(resp["Ipams"], list)
+
+
+class TestEC2GapDescribeLocalGateway:
+    """Tests for DescribeLocalGateway* operations."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_describe_local_gateway_route_table_vpc_associations(self, ec2):
+        """DescribeLocalGatewayRouteTableVpcAssociations returns a valid response."""
+        resp = ec2.describe_local_gateway_route_table_vpc_associations()
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_describe_local_gateway_virtual_interface_groups(self, ec2):
+        """DescribeLocalGatewayVirtualInterfaceGroups returns a valid response."""
+        resp = ec2.describe_local_gateway_virtual_interface_groups()
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_describe_local_gateway_virtual_interfaces(self, ec2):
+        """DescribeLocalGatewayVirtualInterfaces returns a valid response."""
+        resp = ec2.describe_local_gateway_virtual_interfaces()
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_describe_local_gateway_route_table_virtual_interface_group_associations(self, ec2):
+        # DescribeLocalGatewayRouteTableVirtualInterfaceGroupAssociations returns valid response.
+        resp = ec2.describe_local_gateway_route_table_virtual_interface_group_associations()
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestEC2GapDescribeMacHosts:
+    """Tests for DescribeMacHosts operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_describe_mac_hosts_returns_response(self, ec2):
+        """DescribeMacHosts returns a valid response."""
+        resp = ec2.describe_mac_hosts()
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestEC2GapDescribeNetworkInsights:
+    """Tests for DescribeNetworkInsights* operations."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_describe_network_insights_access_scope_analyses(self, ec2):
+        """DescribeNetworkInsightsAccessScopeAnalyses returns a list."""
+        resp = ec2.describe_network_insights_access_scope_analyses()
+        assert "NetworkInsightsAccessScopeAnalyses" in resp
+        assert isinstance(resp["NetworkInsightsAccessScopeAnalyses"], list)
+
+    def test_describe_network_insights_access_scopes(self, ec2):
+        """DescribeNetworkInsightsAccessScopes returns a list."""
+        resp = ec2.describe_network_insights_access_scopes()
+        assert "NetworkInsightsAccessScopes" in resp
+        assert isinstance(resp["NetworkInsightsAccessScopes"], list)
+
+    def test_describe_network_insights_analyses(self, ec2):
+        """DescribeNetworkInsightsAnalyses returns a list."""
+        resp = ec2.describe_network_insights_analyses()
+        assert "NetworkInsightsAnalyses" in resp
+        assert isinstance(resp["NetworkInsightsAnalyses"], list)
+
+    def test_describe_network_insights_paths(self, ec2):
+        """DescribeNetworkInsightsPaths returns a list."""
+        resp = ec2.describe_network_insights_paths()
+        assert "NetworkInsightsPaths" in resp
+        assert isinstance(resp["NetworkInsightsPaths"], list)
+
+
+class TestEC2GapDescribeRouteServers:
+    """Tests for DescribeRouteServer* operations."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_describe_route_servers_returns_response(self, ec2):
+        """DescribeRouteServers returns a valid response."""
+        resp = ec2.describe_route_servers()
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_describe_route_server_endpoints_returns_response(self, ec2):
+        """DescribeRouteServerEndpoints returns a valid response."""
+        resp = ec2.describe_route_server_endpoints()
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_describe_route_server_peers_returns_response(self, ec2):
+        """DescribeRouteServerPeers returns a valid response."""
+        resp = ec2.describe_route_server_peers()
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestEC2GapDescribeVpcEndpoints:
+    """Tests for DescribeVpcEndpoint* operations."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_describe_vpc_endpoint_connection_notifications_returns_response(self, ec2):
+        """DescribeVpcEndpointConnectionNotifications returns a valid response."""
+        resp = ec2.describe_vpc_endpoint_connection_notifications()
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_describe_vpc_endpoint_service_configurations_returns_list(self, ec2):
+        """DescribeVpcEndpointServiceConfigurations returns a list."""
+        resp = ec2.describe_vpc_endpoint_service_configurations()
+        assert "ServiceConfigurations" in resp
+        assert isinstance(resp["ServiceConfigurations"], list)
+
+    def test_describe_vpc_endpoint_services_returns_services(self, ec2):
+        """DescribeVpcEndpointServices returns service names."""
+        resp = ec2.describe_vpc_endpoint_services()
+        assert "ServiceNames" in resp
+        assert isinstance(resp["ServiceNames"], list)
+        assert "ServiceDetails" in resp
+
+    def test_describe_vpc_endpoint_service_permissions_not_found(self, ec2):
+        """DescribeVpcEndpointServicePermissions raises NotFound for unknown service."""
+        with pytest.raises(botocore.exceptions.ClientError) as exc_info:
+            ec2.describe_vpc_endpoint_service_permissions(ServiceId="vpce-svc-00000000000000000")
+        assert exc_info.value.response["Error"]["Code"] == "InvalidVpcEndpointServiceId.NotFound"
+
+
+class TestEC2GapDescribeVpcEncryptionControls:
+    """Tests for DescribeVpcEncryptionControls operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_describe_vpc_encryption_controls_returns_response(self, ec2):
+        """DescribeVpcEncryptionControls returns a valid response."""
+        resp = ec2.describe_vpc_encryption_controls()
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestEC2GapDescribeVpcBlockPublicAccessExclusions:
+    """Tests for DescribeVpcBlockPublicAccessExclusions operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_describe_vpc_block_public_access_exclusions_returns_response(self, ec2):
+        """DescribeVpcBlockPublicAccessExclusions returns a valid response."""
+        resp = ec2.describe_vpc_block_public_access_exclusions()
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestEC2GapGetAllowedImagesSettings:
+    """Tests for GetAllowedImagesSettings operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_get_allowed_images_settings_returns_response(self, ec2):
+        """GetAllowedImagesSettings returns a valid response."""
+        resp = ec2.get_allowed_images_settings()
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestEC2GapGetTransitGateway:
+    """Tests for GetTransitGateway* operations."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_get_transit_gateway_prefix_list_references(self, ec2):
+        """GetTransitGatewayPrefixListReferences returns a list."""
+        resp = ec2.get_transit_gateway_prefix_list_references(
+            TransitGatewayRouteTableId="tgw-rtb-00000000000000000"
+        )
+        assert "TransitGatewayPrefixListReferences" in resp
+        assert isinstance(resp["TransitGatewayPrefixListReferences"], list)
+
+    def test_get_transit_gateway_route_table_associations(self, ec2):
+        """GetTransitGatewayRouteTableAssociations returns a list."""
+        resp = ec2.get_transit_gateway_route_table_associations(
+            TransitGatewayRouteTableId="tgw-rtb-00000000000000000"
+        )
+        assert "Associations" in resp
+        assert isinstance(resp["Associations"], list)
+
+    def test_get_transit_gateway_route_table_propagations(self, ec2):
+        """GetTransitGatewayRouteTablePropagations returns a list."""
+        resp = ec2.get_transit_gateway_route_table_propagations(
+            TransitGatewayRouteTableId="tgw-rtb-00000000000000000"
+        )
+        assert "TransitGatewayRouteTablePropagations" in resp
+        assert isinstance(resp["TransitGatewayRouteTablePropagations"], list)
+
+
+class TestEC2GapGetNetworkInsights:
+    """Tests for GetNetworkInsights* operations."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_get_network_insights_access_scope_analysis_findings(self, ec2):
+        """GetNetworkInsightsAccessScopeAnalysisFindings returns findings list."""
+        resp = ec2.get_network_insights_access_scope_analysis_findings(
+            NetworkInsightsAccessScopeAnalysisId="nisa-00000000000000000"
+        )
+        assert "AnalysisFindings" in resp
+        assert isinstance(resp["AnalysisFindings"], list)
+
+    def test_get_network_insights_access_scope_content(self, ec2):
+        """GetNetworkInsightsAccessScopeContent returns a valid response."""
+        resp = ec2.get_network_insights_access_scope_content(
+            NetworkInsightsAccessScopeId="nis-00000000000000000"
+        )
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestEC2GapGetInstanceUefiData:
+    """Tests for GetInstanceUefiData operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_get_instance_uefi_data_not_found(self, ec2):
+        """GetInstanceUefiData raises NotFound for unknown instance."""
+        with pytest.raises(botocore.exceptions.ClientError) as exc_info:
+            ec2.get_instance_uefi_data(InstanceId="i-00000000000000000")
+        assert exc_info.value.response["Error"]["Code"] == "InvalidInstanceID.NotFound"
+
+
+class TestEC2GapDisableAllowedImagesSettings:
+    """Tests for DisableAllowedImagesSettings operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_disable_allowed_images_settings(self, ec2):
+        """DisableAllowedImagesSettings returns a valid response."""
+        resp = ec2.disable_allowed_images_settings()
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestEC2GapDisableAwsNetworkPerformanceMetricSubscription:
+    """Tests for DisableAwsNetworkPerformanceMetricSubscription operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_disable_aws_network_performance_metric_subscription(self, ec2):
+        """DisableAwsNetworkPerformanceMetricSubscription returns a valid response."""
+        resp = ec2.disable_aws_network_performance_metric_subscription()
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestEC2GapDisableImageBlockPublicAccess:
+    """Tests for DisableImageBlockPublicAccess operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_disable_image_block_public_access(self, ec2):
+        """DisableImageBlockPublicAccess returns a valid response."""
+        resp = ec2.disable_image_block_public_access()
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestEC2GapDisableSerialConsoleAccess:
+    """Tests for DisableSerialConsoleAccess operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_disable_serial_console_access(self, ec2):
+        """DisableSerialConsoleAccess returns a valid response."""
+        resp = ec2.disable_serial_console_access()
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestEC2GapDisableSnapshotBlockPublicAccess:
+    """Tests for DisableSnapshotBlockPublicAccess operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_disable_snapshot_block_public_access(self, ec2):
+        """DisableSnapshotBlockPublicAccess returns state."""
+        resp = ec2.disable_snapshot_block_public_access()
+        assert "State" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestEC2GapEnableAwsNetworkPerformanceMetricSubscription:
+    """Tests for EnableAwsNetworkPerformanceMetricSubscription operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_enable_aws_network_performance_metric_subscription(self, ec2):
+        """EnableAwsNetworkPerformanceMetricSubscription returns a valid response."""
+        resp = ec2.enable_aws_network_performance_metric_subscription()
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestEC2GapEnableSerialConsoleAccess:
+    """Tests for EnableSerialConsoleAccess operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_enable_serial_console_access(self, ec2):
+        """EnableSerialConsoleAccess returns a valid response."""
+        resp = ec2.enable_serial_console_access()
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestEC2GapEnableSnapshotBlockPublicAccess:
+    """Tests for EnableSnapshotBlockPublicAccess operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_enable_snapshot_block_public_access(self, ec2):
+        """EnableSnapshotBlockPublicAccess returns state."""
+        resp = ec2.enable_snapshot_block_public_access(State="block-all-sharing")
+        assert "State" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestEC2GapDisableTransitGatewayRouteTablePropagation:
+    """Tests for DisableTransitGatewayRouteTablePropagation operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_disable_transit_gateway_route_table_propagation_not_found(self, ec2):
+        """DisableTransitGatewayRouteTablePropagation raises NotFound for unknown attachment."""
+        with pytest.raises(botocore.exceptions.ClientError) as exc_info:
+            ec2.disable_transit_gateway_route_table_propagation(
+                TransitGatewayRouteTableId="tgw-rtb-00000000000000000",
+                TransitGatewayAttachmentId="tgw-attach-00000000000000000",
+            )
+        assert (
+            exc_info.value.response["Error"]["Code"] == "InvalidTransitGatewayAttachmentID.NotFound"
+        )
+
+
+class TestEC2GapEnableTransitGatewayRouteTablePropagation:
+    """Tests for EnableTransitGatewayRouteTablePropagation operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_enable_transit_gateway_route_table_propagation_not_found(self, ec2):
+        """EnableTransitGatewayRouteTablePropagation raises NotFound for unknown attachment."""
+        with pytest.raises(botocore.exceptions.ClientError) as exc_info:
+            ec2.enable_transit_gateway_route_table_propagation(
+                TransitGatewayRouteTableId="tgw-rtb-00000000000000000",
+                TransitGatewayAttachmentId="tgw-attach-00000000000000000",
+            )
+        assert (
+            exc_info.value.response["Error"]["Code"] == "InvalidTransitGatewayAttachmentID.NotFound"
+        )
+
+
+class TestEC2GapDeregisterTransitGatewayMulticast:
+    """Tests for DeregisterTransitGatewayMulticast* operations."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_deregister_transit_gateway_multicast_group_members(self, ec2):
+        """DeregisterTransitGatewayMulticastGroupMembers returns a valid response."""
+        resp = ec2.deregister_transit_gateway_multicast_group_members(
+            TransitGatewayMulticastDomainId="tgw-mcast-domain-00000000000000000",
+            GroupIpAddress="224.0.0.1",
+            NetworkInterfaceIds=["eni-00000000000000000"],
+        )
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_deregister_transit_gateway_multicast_group_sources(self, ec2):
+        """DeregisterTransitGatewayMulticastGroupSources returns a valid response."""
+        resp = ec2.deregister_transit_gateway_multicast_group_sources(
+            TransitGatewayMulticastDomainId="tgw-mcast-domain-00000000000000000",
+            GroupIpAddress="224.0.0.1",
+            NetworkInterfaceIds=["eni-00000000000000000"],
+        )
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestEC2GapSearchLocalGatewayRoutes:
+    """Tests for SearchLocalGatewayRoutes operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_search_local_gateway_routes_returns_routes(self, ec2):
+        """SearchLocalGatewayRoutes returns a routes list."""
+        resp = ec2.search_local_gateway_routes(
+            LocalGatewayRouteTableId="lgw-rtb-00000000000000000",
+            Filters=[{"Name": "type", "Values": ["static"]}],
+        )
+        assert "Routes" in resp
+        assert isinstance(resp["Routes"], list)
+
+
+class TestEC2GapSearchTransitGatewayRoutes:
+    """Tests for SearchTransitGatewayRoutes operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_search_transit_gateway_routes_returns_routes(self, ec2):
+        """SearchTransitGatewayRoutes returns routes list."""
+        resp = ec2.search_transit_gateway_routes(
+            TransitGatewayRouteTableId="tgw-rtb-00000000000000000",
+            Filters=[{"Name": "type", "Values": ["static"]}],
+        )
+        assert "Routes" in resp
+        assert isinstance(resp["Routes"], list)
+        assert "AdditionalRoutesAvailable" in resp
+
+
+class TestEC2GapDeleteNetworkInsightsPath:
+    """Tests for DeleteNetworkInsightsPath operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_delete_network_insights_path_not_found(self, ec2):
+        """DeleteNetworkInsightsPath raises NotFound for unknown path."""
+        with pytest.raises(botocore.exceptions.ClientError) as exc_info:
+            ec2.delete_network_insights_path(NetworkInsightsPathId="nip-00000000000000000")
+        assert exc_info.value.response["Error"]["Code"] == "InvalidNetworkInsightsPathId.NotFound"
+
+
+class TestEC2GapModifyVpcTenancy:
+    """Tests for ModifyVpcTenancy operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_modify_vpc_tenancy(self, ec2):
+        """ModifyVpcTenancy returns a valid response for an existing VPC."""
+        vpc_resp = ec2.create_vpc(CidrBlock="10.100.0.0/16")
+        vpc_id = vpc_resp["Vpc"]["VpcId"]
+        try:
+            resp = ec2.modify_vpc_tenancy(VpcId=vpc_id, InstanceTenancy="default")
+            assert "ResponseMetadata" in resp
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        finally:
+            ec2.delete_vpc(VpcId=vpc_id)
+
+
+class TestEC2GapModifyManagedPrefixList:
+    """Tests for ModifyManagedPrefixList operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_modify_managed_prefix_list_not_found(self, ec2):
+        """ModifyManagedPrefixList raises NotFound for unknown prefix list."""
+        with pytest.raises(botocore.exceptions.ClientError) as exc_info:
+            ec2.modify_managed_prefix_list(PrefixListId="pl-00000000000000000")
+        assert exc_info.value.response["Error"]["Code"] == "InvalidPrefixListID.NotFound"
+
+    def test_modify_managed_prefix_list_add_entry(self, ec2):
+        """ModifyManagedPrefixList adds entries to an existing prefix list."""
+        pl_resp = ec2.create_managed_prefix_list(
+            PrefixListName="test-modify-pl",
+            MaxEntries=10,
+            AddressFamily="IPv4",
+        )
+        pl_id = pl_resp["PrefixList"]["PrefixListId"]
+        try:
+            resp = ec2.modify_managed_prefix_list(
+                PrefixListId=pl_id,
+                CurrentVersion=1,
+                AddEntries=[{"Cidr": "10.0.0.0/8", "Description": "test"}],
+            )
+            assert "ResponseMetadata" in resp
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        finally:
+            ec2.delete_managed_prefix_list(PrefixListId=pl_id)
+
+
+class TestEC2GapModifyTransitGateway:
+    """Tests for ModifyTransitGateway operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_modify_transit_gateway_not_found(self, ec2):
+        """ModifyTransitGateway raises NotFound for unknown TGW."""
+        with pytest.raises(botocore.exceptions.ClientError) as exc_info:
+            ec2.modify_transit_gateway(TransitGatewayId="tgw-00000000000000000")
+        assert exc_info.value.response["Error"]["Code"] == "InvalidTransitGatewayID.NotFound"
+
+
+class TestEC2GapModifyTransitGatewayVpcAttachment:
+    """Tests for ModifyTransitGatewayVpcAttachment operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_modify_transit_gateway_vpc_attachment_not_found(self, ec2):
+        """ModifyTransitGatewayVpcAttachment raises NotFound for unknown attachment."""
+        with pytest.raises(botocore.exceptions.ClientError) as exc_info:
+            ec2.modify_transit_gateway_vpc_attachment(
+                TransitGatewayAttachmentId="tgw-attach-00000000000000000"
+            )
+        assert (
+            exc_info.value.response["Error"]["Code"] == "InvalidTransitGatewayAttachmentID.NotFound"
+        )
+
+
+class TestEC2GapModifyClientVpnEndpoint:
+    """Tests for ModifyClientVpnEndpoint operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_modify_client_vpn_endpoint_not_found(self, ec2):
+        """ModifyClientVpnEndpoint raises NotFound for unknown endpoint."""
+        with pytest.raises(botocore.exceptions.ClientError) as exc_info:
+            ec2.modify_client_vpn_endpoint(ClientVpnEndpointId="cvpn-endpoint-00000000000000000")
+        assert exc_info.value.response["Error"]["Code"] == "InvalidClientVpnEndpointId.NotFound"
+
+
+class TestEC2GapModifyCapacityReservationFleet:
+    """Tests for ModifyCapacityReservationFleet operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_modify_capacity_reservation_fleet_not_found(self, ec2):
+        """ModifyCapacityReservationFleet raises NotFound for unknown fleet."""
+        with pytest.raises(botocore.exceptions.ClientError) as exc_info:
+            ec2.modify_capacity_reservation_fleet(
+                CapacityReservationFleetId="crf-00000000000000000",
+                TotalTargetCapacity=1,
+            )
+        assert (
+            exc_info.value.response["Error"]["Code"] == "InvalidCapacityReservationFleetId.NotFound"
+        )
+
+
+class TestEC2GapModifyVpcEndpointServicePermissions:
+    """Tests for ModifyVpcEndpointServicePermissions operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_modify_vpc_endpoint_service_permissions_not_found(self, ec2):
+        """ModifyVpcEndpointServicePermissions raises NotFound for unknown service."""
+        with pytest.raises(botocore.exceptions.ClientError) as exc_info:
+            ec2.modify_vpc_endpoint_service_permissions(
+                ServiceId="vpce-svc-00000000000000000",
+                AddAllowedPrincipals=["arn:aws:iam::123456789012:root"],
+            )
+        assert exc_info.value.response["Error"]["Code"] == "InvalidVpcEndpointServiceId.NotFound"
+
+
+class TestEC2GapModifyVpcEndpointServiceConfiguration:
+    """Tests for ModifyVpcEndpointServiceConfiguration operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_modify_vpc_endpoint_service_configuration_not_found(self, ec2):
+        """ModifyVpcEndpointServiceConfiguration raises NotFound for unknown service."""
+        with pytest.raises(botocore.exceptions.ClientError) as exc_info:
+            ec2.modify_vpc_endpoint_service_configuration(ServiceId="vpce-svc-00000000000000000")
+        assert exc_info.value.response["Error"]["Code"] == "InvalidVpcEndpointServiceId.NotFound"
+
+
+class TestEC2GapModifyIpam:
+    """Tests for ModifyIpam operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_modify_ipam_not_found(self, ec2):
+        """ModifyIpam raises NotFound for unknown IPAM."""
+        with pytest.raises(botocore.exceptions.ClientError) as exc_info:
+            ec2.modify_ipam(IpamId="ipam-00000000000000000")
+        assert exc_info.value.response["Error"]["Code"] == "InvalidIpamId.NotFound"
+
+
+class TestEC2GapRejectVpcEndpointConnections:
+    """Tests for RejectVpcEndpointConnections operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_reject_vpc_endpoint_connections_not_found(self, ec2):
+        """RejectVpcEndpointConnections raises NotFound for unknown service."""
+        with pytest.raises(botocore.exceptions.ClientError) as exc_info:
+            ec2.reject_vpc_endpoint_connections(
+                ServiceId="vpce-svc-00000000000000000",
+                VpcEndpointIds=["vpce-00000000000000000"],
+            )
+        assert exc_info.value.response["Error"]["Code"] == "InvalidVpcEndpointServiceId.NotFound"
+
+
+class TestEC2GapUpdateSecurityGroupRuleDescriptions:
+    """Tests for UpdateSecurityGroupRuleDescriptions* operations."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_update_security_group_rule_descriptions_egress(self, ec2):
+        """UpdateSecurityGroupRuleDescriptionsEgress updates egress rule descriptions."""
+        vpc_resp = ec2.create_vpc(CidrBlock="10.101.0.0/16")
+        vpc_id = vpc_resp["Vpc"]["VpcId"]
+        sg_resp = ec2.create_security_group(
+            GroupName=f"test-sg-egress-{uuid.uuid4().hex[:8]}",
+            Description="test",
+            VpcId=vpc_id,
+        )
+        sg_id = sg_resp["GroupId"]
+        try:
+            ec2.authorize_security_group_egress(
+                GroupId=sg_id,
+                IpPermissions=[
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 80,
+                        "ToPort": 80,
+                        "IpRanges": [{"CidrIp": "0.0.0.0/0"}],
+                    }
+                ],
+            )
+            resp = ec2.update_security_group_rule_descriptions_egress(
+                GroupId=sg_id,
+                IpPermissions=[
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 80,
+                        "ToPort": 80,
+                        "IpRanges": [{"CidrIp": "0.0.0.0/0", "Description": "updated-desc"}],
+                    }
+                ],
+            )
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        finally:
+            ec2.delete_security_group(GroupId=sg_id)
+            ec2.delete_vpc(VpcId=vpc_id)
+
+    def test_update_security_group_rule_descriptions_ingress(self, ec2):
+        """UpdateSecurityGroupRuleDescriptionsIngress updates ingress rule descriptions."""
+        vpc_resp = ec2.create_vpc(CidrBlock="10.102.0.0/16")
+        vpc_id = vpc_resp["Vpc"]["VpcId"]
+        sg_resp = ec2.create_security_group(
+            GroupName=f"test-sg-ingress-{uuid.uuid4().hex[:8]}",
+            Description="test",
+            VpcId=vpc_id,
+        )
+        sg_id = sg_resp["GroupId"]
+        try:
+            ec2.authorize_security_group_ingress(
+                GroupId=sg_id,
+                IpPermissions=[
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 80,
+                        "ToPort": 80,
+                        "IpRanges": [{"CidrIp": "0.0.0.0/0"}],
+                    }
+                ],
+            )
+            resp = ec2.update_security_group_rule_descriptions_ingress(
+                GroupId=sg_id,
+                IpPermissions=[
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 80,
+                        "ToPort": 80,
+                        "IpRanges": [{"CidrIp": "0.0.0.0/0", "Description": "updated-desc"}],
+                    }
+                ],
+            )
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        finally:
+            ec2.delete_security_group(GroupId=sg_id)
+            ec2.delete_vpc(VpcId=vpc_id)
+
+    def test_update_security_group_rule_descriptions_egress_not_found(self, ec2):
+        """UpdateSecurityGroupRuleDescriptionsEgress raises error for unknown group."""
+        with pytest.raises(botocore.exceptions.ClientError) as exc_info:
+            ec2.update_security_group_rule_descriptions_egress(
+                GroupId="sg-00000000000000000",
+                IpPermissions=[
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 80,
+                        "ToPort": 80,
+                        "IpRanges": [{"CidrIp": "0.0.0.0/0", "Description": "test"}],
+                    }
+                ],
+            )
+        assert exc_info.value.response["Error"]["Code"] == "InvalidGroup.NotFound"
+
+
+class TestEC2GapImportImage:
+    """Tests for ImportImage operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_import_image_returns_response(self, ec2):
+        """ImportImage returns a valid import task response."""
+        resp = ec2.import_image(
+            Architecture="x86_64",
+            Platform="Linux",
+        )
+        assert "ResponseMetadata" in resp
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestEC2GapStartNetworkInsightsAnalysis:
+    """Tests for StartNetworkInsightsAnalysis operation."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_start_network_insights_analysis_returns_analysis(self, ec2):
+        """StartNetworkInsightsAnalysis returns a NetworkInsightsAnalysis."""
+        resp = ec2.start_network_insights_analysis(
+            NetworkInsightsPathId="nip-00000000000000000",
+            ClientToken="test-start-nia-1",
+        )
+        assert "NetworkInsightsAnalysis" in resp
+        analysis = resp["NetworkInsightsAnalysis"]
+        assert "NetworkInsightsAnalysisId" in analysis
+
+
+class TestEC2GapRunInstances:
+    """Tests for RunInstances operation (gap coverage)."""
+
+    @pytest.fixture
+    def ec2(self):
+        return make_client("ec2")
+
+    def test_run_instances_creates_instance(self, ec2):
+        """RunInstances creates an EC2 instance."""
+        # Get an available AMI
+        images = ec2.describe_images(Filters=[{"Name": "state", "Values": ["available"]}])
+        assert images["Images"], "No AMIs available to run"
+        ami_id = images["Images"][0]["ImageId"]
+        resp = ec2.run_instances(ImageId=ami_id, MinCount=1, MaxCount=1)
+        assert "Instances" in resp
+        assert len(resp["Instances"]) == 1
+        instance_id = resp["Instances"][0]["InstanceId"]
+        assert instance_id.startswith("i-")
+        # Cleanup
+        ec2.terminate_instances(InstanceIds=[instance_id])

@@ -1575,3 +1575,26 @@ class TestCloudWatchAlarmMuteRules:
         """ListAlarmMuteRules returns 200."""
         resp = cw.list_alarm_mute_rules()
         assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestCloudWatchMuteRuleCRUD:
+    """Tests for CloudWatch PutAlarmMuteRule and DeleteAlarmMuteRule operations."""
+
+    @pytest.fixture
+    def cw(self):  # noqa: F811
+        return make_client("cloudwatch")
+
+    def test_put_and_delete_alarm_mute_rule(self, cw):
+        """PutAlarmMuteRule creates a rule and DeleteAlarmMuteRule removes it."""
+        name = f"mute-rule-{uuid.uuid4().hex[:8]}"
+        cw.put_alarm_mute_rule(
+            Name=name,
+            Rule={"Schedule": {"Expression": "cron(0 0 * * ? *)", "Duration": "PT1H"}},
+        )
+        resp = cw.delete_alarm_mute_rule(AlarmMuteRuleName=name)
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_delete_alarm_mute_rule_nonexistent(self, cw):
+        """DeleteAlarmMuteRule with nonexistent name returns 200."""
+        resp = cw.delete_alarm_mute_rule(AlarmMuteRuleName="nonexistent-mute-rule-xyz")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200

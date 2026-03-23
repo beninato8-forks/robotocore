@@ -756,3 +756,137 @@ class TestFSxDescribeFiltered:
         assert len(desc["Volumes"]) == 1
         assert desc["Volumes"][0]["VolumeId"] == vol_id
         assert desc["Volumes"][0]["Name"] == "filtered-vol"
+
+
+class TestFSxMissingGapOps:
+    """Tests for FSx operations identified as coverage gaps."""
+
+    def test_update_shared_vpc_configuration(self, fsx):
+        """UpdateSharedVpcConfiguration sets EnableFsxRouteTableUpdatesFromParticipantAccounts."""
+        resp = fsx.update_shared_vpc_configuration(
+            EnableFsxRouteTableUpdatesFromParticipantAccounts="true"
+        )
+        assert "EnableFsxRouteTableUpdatesFromParticipantAccounts" in resp
+
+    def test_release_file_system_nfs_v3_locks(self, fsx):
+        """ReleaseFileSystemNfsV3Locks returns FileSystem for a fake ID."""
+        fake_fs_id = "fs-" + uuid.uuid4().hex[:8]
+        resp = fsx.release_file_system_nfs_v3_locks(FileSystemId=fake_fs_id)
+        assert "FileSystem" in resp
+
+    def test_update_volume_not_found(self, fsx):
+        """UpdateVolume with fake VolumeId raises VolumeNotFound."""
+        fake_vol_id = "fsvol-" + uuid.uuid4().hex[:17]
+        with pytest.raises(ClientError) as exc:
+            fsx.update_volume(VolumeId=fake_vol_id)
+        err = exc.value.response["Error"]["Code"]
+        assert err in ("VolumeNotFound", "ResourceNotFoundException", "BadRequest")
+
+    def test_update_storage_virtual_machine_not_found(self, fsx):
+        """UpdateStorageVirtualMachine with fake ID raises StorageVirtualMachineNotFound."""
+        fake_svm_id = "svm-" + uuid.uuid4().hex[:17]
+        with pytest.raises(ClientError) as exc:
+            fsx.update_storage_virtual_machine(StorageVirtualMachineId=fake_svm_id)
+        err = exc.value.response["Error"]["Code"]
+        assert err in (
+            "StorageVirtualMachineNotFound",
+            "ResourceNotFoundException",
+            "BadRequest",
+        )
+
+
+class TestFSxGapOps:
+    """Tests for FSx ops that are implemented but weren't covered."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("fsx")
+
+    def test_restore_volume_from_snapshot_not_found(self, client):
+        """RestoreVolumeFromSnapshot raises VolumeNotFound for nonexistent volume."""
+        with pytest.raises(ClientError) as exc:
+            client.restore_volume_from_snapshot(
+                VolumeId="fsvol-0123456789abcdef0",
+                SnapshotId="fssnap-0123456789abcdef0",
+            )
+        err = exc.value.response["Error"]["Code"]
+        assert err in ("VolumeNotFound", "ResourceNotFoundException", "InvalidRequest")
+
+    def test_describe_file_system_aliases_not_found(self, client):
+        """DescribeFileSystemAliases raises FileSystemNotFound for nonexistent FS."""
+        with pytest.raises(ClientError) as exc:
+            client.describe_file_system_aliases(FileSystemId="fs-0123456789abcdef0")
+        err = exc.value.response["Error"]["Code"]
+        assert err in ("FileSystemNotFound", "ResourceNotFoundException")
+
+    def test_start_misconfigured_state_recovery(self, client):
+        """StartMisconfiguredStateRecovery returns 200 for any filesystem ID."""
+        resp = client.start_misconfigured_state_recovery(FileSystemId="fs-0123456789abcdef0")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestFSxNewStubOps:
+    """Tests for newly stubbed FSx operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("fsx")
+
+    def test_cancel_data_repository_task(self, client):
+        """CancelDataRepositoryTask returns Lifecycle and TaskId for a task ID."""
+        resp = client.cancel_data_repository_task(TaskId="drt-0123456789abcdef0")
+        assert "Lifecycle" in resp
+        assert "TaskId" in resp
+
+    def test_copy_backup(self, client):
+        """CopyBackup returns a Backup object for a source backup ID."""
+        resp = client.copy_backup(SourceBackupId="backup-0123456789abcdef0")
+        assert "Backup" in resp
+
+    def test_copy_snapshot_and_update_volume(self, client):
+        """CopySnapshotAndUpdateVolume returns VolumeId."""
+        resp = client.copy_snapshot_and_update_volume(
+            VolumeId="fsvol-0123456789abcdef0",
+            SourceSnapshotARN="arn:aws:fsx:us-east-1:123456789012:snapshot:fssnap-0123456789abcdef0",
+        )
+        assert "VolumeId" in resp
+
+    def test_create_and_attach_s3_access_point(self, client):
+        """CreateAndAttachS3AccessPoint returns HTTP 200."""
+        resp = client.create_and_attach_s3_access_point(Name="test-ap-stub", Type="OPENZFS")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_create_data_repository_task(self, client):
+        """CreateDataRepositoryTask returns a DataRepositoryTask object."""
+        resp = client.create_data_repository_task(
+            Type="EXPORT_TO_REPOSITORY",
+            FileSystemId="fs-0123456789abcdef0",
+            Report={"Enabled": False},
+        )
+        assert "DataRepositoryTask" in resp
+
+    def test_create_file_cache(self, client):
+        """CreateFileCache returns a FileCache object."""
+        resp = client.create_file_cache(
+            FileCacheType="LUSTRE",
+            FileCacheTypeVersion="2.12",
+            StorageCapacity=1200,
+            SubnetIds=["subnet-00000001"],
+        )
+        assert "FileCache" in resp
+
+    def test_delete_file_cache(self, client):
+        """DeleteFileCache returns FileCacheId and Lifecycle."""
+        resp = client.delete_file_cache(FileCacheId="fc-0123456789abcdef0")
+        assert "FileCacheId" in resp
+        assert "Lifecycle" in resp
+
+    def test_detach_and_delete_s3_access_point(self, client):
+        """DetachAndDeleteS3AccessPoint returns HTTP 200."""
+        resp = client.detach_and_delete_s3_access_point(Name="test-ap-stub")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_update_file_cache(self, client):
+        """UpdateFileCache returns a FileCache object."""
+        resp = client.update_file_cache(FileCacheId="fc-0123456789abcdef0")
+        assert "FileCache" in resp

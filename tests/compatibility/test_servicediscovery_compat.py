@@ -436,3 +436,19 @@ class TestServiceDiscoveryServiceAttributes:
         with pytest.raises(ClientError) as exc:
             sd.get_service_attributes(ServiceId="srv-nonexistent-xyz")
         assert exc.value.response["Error"]["Code"] == "ServiceNotFound"
+
+    def test_delete_service_attributes_nonexistent(self, sd):
+        """DeleteServiceAttributes with nonexistent service raises ServiceNotFound."""
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc:
+            sd.delete_service_attributes(ServiceId="srv-nonexistent-xyz", Attributes=["key1"])
+        assert exc.value.response["Error"]["Code"] == "ServiceNotFound"
+
+    def test_update_service_attributes_nonexistent(self, sd):
+        """UpdateServiceAttributes with nonexistent service raises ServiceNotFound."""
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc:
+            sd.update_service_attributes(ServiceId="srv-nonexistent-xyz", Attributes={"key": "val"})
+        assert exc.value.response["Error"]["Code"] == "ServiceNotFound"

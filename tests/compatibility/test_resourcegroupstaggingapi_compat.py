@@ -81,3 +81,12 @@ class TestResourceGroupsTaggingAPIOperations:
                 s3.delete_bucket(Bucket=bucket)
             except Exception:
                 pass  # best-effort cleanup
+
+
+class TestResourceGroupsTaggingAPIMissingGapOps:
+    """Tests for previously-missing ResourceGroupsTaggingAPI operations."""
+
+    def test_start_report_creation(self, tagging):
+        """StartReportCreation accepts an S3 bucket and returns 200."""
+        resp = tagging.start_report_creation(S3Bucket="my-test-bucket")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200

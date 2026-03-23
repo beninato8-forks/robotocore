@@ -1657,3 +1657,154 @@ class TestOpenSearchDataSourceOps:
         assert ds2 in names
         opensearch.delete_data_source(DomainName=domain, Name=ds1)
         opensearch.delete_data_source(DomainName=domain, Name=ds2)
+
+
+class TestOpenSearchMissingGapOps:
+    """Tests for previously untested OpenSearch operations."""
+
+    @pytest.fixture
+    def opensearch(self):
+        return make_client("opensearch")
+
+    def test_get_upgrade_history(self, opensearch):
+        """get_upgrade_history returns UpgradeHistories key."""
+        response = opensearch.get_upgrade_history(DomainName="fake-domain")
+        assert "UpgradeHistories" in response
+
+    def test_get_upgrade_status(self, opensearch):
+        """get_upgrade_status returns UpgradeStep key."""
+        response = opensearch.get_upgrade_status(DomainName="fake-domain")
+        assert "UpgradeStep" in response
+
+    def test_cancel_service_software_update(self, opensearch):
+        """cancel_service_software_update returns ServiceSoftwareOptions key."""
+        response = opensearch.cancel_service_software_update(DomainName="fake-domain")
+        assert "ServiceSoftwareOptions" in response
+
+    def test_start_service_software_update(self, opensearch):
+        """start_service_software_update returns ServiceSoftwareOptions key."""
+        response = opensearch.start_service_software_update(DomainName="fake-domain")
+        assert "ServiceSoftwareOptions" in response
+
+    def test_list_vpc_endpoint_access(self, opensearch):
+        """list_vpc_endpoint_access returns AuthorizedPrincipalList key."""
+        response = opensearch.list_vpc_endpoint_access(DomainName="fake-domain")
+        assert "AuthorizedPrincipalList" in response
+
+    def test_upgrade_domain(self, opensearch):
+        """upgrade_domain returns DomainName and TargetVersion."""
+        name = f"os-{uuid.uuid4().hex[:8]}"
+        opensearch.create_domain(DomainName=name)
+        try:
+            resp = opensearch.upgrade_domain(DomainName=name, TargetVersion="OpenSearch_2.3")
+            assert resp["DomainName"] == name
+            assert resp["TargetVersion"] == "OpenSearch_2.3"
+        finally:
+            opensearch.delete_domain(DomainName=name)
+
+
+class TestOpenSearchNewStubOps:
+    """Tests for newly-implemented opensearch stub operations."""
+
+    @pytest.fixture
+    def opensearch(self):
+        return make_client("opensearch")
+
+    def test_list_direct_query_data_sources(self, opensearch):
+        """ListDirectQueryDataSources returns a list."""
+        resp = opensearch.list_direct_query_data_sources()
+        assert "DirectQueryDataSources" in resp
+
+    def test_reject_inbound_connection(self, opensearch):
+        """RejectInboundConnection returns the connection with REJECTED status."""
+        resp = opensearch.reject_inbound_connection(ConnectionId="fake-conn-id")
+        assert "Connection" in resp
+
+    def test_cancel_domain_config_change(self, opensearch):
+        """CancelDomainConfigChange returns dry run and cancelled change ids."""
+        name = _unique_domain()
+        opensearch.create_domain(DomainName=name)
+        try:
+            resp = opensearch.cancel_domain_config_change(DomainName=name, DryRun=True)
+            assert "CancelledChangeIds" in resp
+        finally:
+            opensearch.delete_domain(DomainName=name)
+
+    def test_get_index(self, opensearch):
+        """GetIndex returns response (stub)."""
+        name = _unique_domain()
+        opensearch.create_domain(DomainName=name)
+        try:
+            resp = opensearch.get_index(DomainName=name, IndexName="test-index")
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        finally:
+            opensearch.delete_domain(DomainName=name)
+
+    def test_put_default_application_setting(self, opensearch):
+        """PutDefaultApplicationSetting succeeds."""
+        resp = opensearch.put_default_application_setting(
+            applicationArn="arn:aws:opensearch:us-east-1:123456789012:application/test-app",
+            setAsDefault=True,
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestOpenSearchNewGapOps:
+    """Tests for newly covered OpenSearch gap operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("opensearch")
+
+    @pytest.fixture
+    def domain(self, client):
+        name = _unique_domain()
+        client.create_domain(DomainName=name)
+        yield name
+        client.delete_domain(DomainName=name)
+
+    def test_add_and_update_direct_query_data_source(self, client):
+        """AddDirectQueryDataSource and UpdateDirectQueryDataSource work."""
+        resp = client.add_direct_query_data_source(
+            DataSourceName="dss",
+            DataSourceType={
+                "CloudWatchLog": {"RoleArn": "arn:aws:iam::123456789012:role/test-role-abc"}
+            },
+            OpenSearchArns=["arn:aws:es:us-east-1:123456789012:domain/test-domain"],
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        resp2 = client.update_direct_query_data_source(
+            DataSourceName="dss",
+            DataSourceType={
+                "CloudWatchLog": {"RoleArn": "arn:aws:iam::123456789012:role/test-role-abc"}
+            },
+            OpenSearchArns=["arn:aws:es:us-east-1:123456789012:domain/test-domain"],
+        )
+        assert resp2["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_associate_and_dissociate_packages(self, client, domain):
+        """AssociatePackages and DissociatePackages return 200."""
+        resp = client.associate_packages(
+            PackageList=[{"PackageID": "F12345", "PrerequisitePackageIDList": []}],
+            DomainName=domain,
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        resp2 = client.dissociate_packages(
+            PackageList=["F12345"],
+            DomainName=domain,
+        )
+        assert resp2["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_create_and_delete_index(self, client, domain):
+        """CreateIndex, UpdateIndex, DeleteIndex all return 200."""
+        client.create_index(DomainName=domain, IndexName="idx1", IndexSchema="{}")
+        client.update_index(DomainName=domain, IndexName="idx1", IndexSchema="{}")
+        resp = client.delete_index(DomainName=domain, IndexName="idx1")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_update_package_scope(self, client):
+        """UpdatePackageScope returns 200."""
+        resp = client.update_package_scope(
+            PackageID="F12345", Operation="ADD", PackageUserList=["123456789012"]
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200

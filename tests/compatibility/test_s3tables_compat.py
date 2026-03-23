@@ -128,24 +128,19 @@ class TestS3TablesOperations:
 
     # --- GetTableBucketEncryption ---
     def test_get_table_bucket_encryption(self, s3tables, table_bucket):
-        # New bucket has no encryption config yet; server returns NotFoundException
-        with pytest.raises(s3tables.exceptions.ClientError) as exc:
-            s3tables.get_table_bucket_encryption(tableBucketARN=table_bucket)
-        assert exc.value.response["Error"]["Code"] == "NotFoundException"
+        resp = s3tables.get_table_bucket_encryption(tableBucketARN=table_bucket)
+        assert "encryptionConfiguration" in resp
 
     # --- GetTableBucketMaintenanceConfiguration ---
     def test_get_table_bucket_maintenance_configuration(self, s3tables, table_bucket):
-        # New bucket has no maintenance config; server returns NotFoundException
-        with pytest.raises(s3tables.exceptions.ClientError) as exc:
-            s3tables.get_table_bucket_maintenance_configuration(tableBucketARN=table_bucket)
-        assert exc.value.response["Error"]["Code"] == "NotFoundException"
+        resp = s3tables.get_table_bucket_maintenance_configuration(tableBucketARN=table_bucket)
+        assert "tableBucketARN" in resp
+        assert "configuration" in resp
 
     # --- GetTableBucketMetricsConfiguration ---
     def test_get_table_bucket_metrics_configuration(self, s3tables, table_bucket):
-        # New bucket has no metrics config; server returns NotFoundException
-        with pytest.raises(s3tables.exceptions.ClientError) as exc:
-            s3tables.get_table_bucket_metrics_configuration(tableBucketARN=table_bucket)
-        assert exc.value.response["Error"]["Code"] == "NotFoundException"
+        resp = s3tables.get_table_bucket_metrics_configuration(tableBucketARN=table_bucket)
+        assert "tableBucketARN" in resp
 
     # --- GetTableBucketPolicy ---
     def test_get_table_bucket_policy_not_found(self, s3tables, table_bucket):
@@ -167,10 +162,8 @@ class TestS3TablesOperations:
 
     # --- GetTableBucketStorageClass ---
     def test_get_table_bucket_storage_class(self, s3tables, table_bucket):
-        # New bucket has no storage class config; server returns NotFoundException
-        with pytest.raises(s3tables.exceptions.ClientError) as exc:
-            s3tables.get_table_bucket_storage_class(tableBucketARN=table_bucket)
-        assert exc.value.response["Error"]["Code"] == "NotFoundException"
+        resp = s3tables.get_table_bucket_storage_class(tableBucketARN=table_bucket)
+        assert "storageClassConfiguration" in resp
 
     # --- ListNamespaces ---
     def test_list_namespaces(self, s3tables, table_bucket):
@@ -485,3 +478,151 @@ class TestS3TablesOperations:
                 s3tables.delete_namespace(tableBucketARN=table_bucket, namespace=ns)
             except Exception:
                 pass  # best-effort cleanup
+
+
+class TestS3TablesBucketSubPaths:
+    """Tests for PutTableBucketPolicy, PutTableBucketEncryption,
+    PutTableBucketMetricsConfiguration, PutTableBucketMaintenanceConfiguration."""
+
+    def test_put_table_bucket_policy(self, s3tables, table_bucket):
+        """PutTableBucketPolicy stores a policy on the bucket."""
+        resp = s3tables.put_table_bucket_policy(
+            tableBucketARN=table_bucket,
+            resourcePolicy='{"Version":"2012-10-17","Statement":[]}',
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_put_table_bucket_encryption(self, s3tables, table_bucket):
+        """PutTableBucketEncryption sets encryption configuration."""
+        resp = s3tables.put_table_bucket_encryption(
+            tableBucketARN=table_bucket,
+            encryptionConfiguration={"sseAlgorithm": "AES256"},
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_put_table_bucket_metrics_configuration(self, s3tables, table_bucket):
+        """PutTableBucketMetricsConfiguration sets metrics configuration."""
+        resp = s3tables.put_table_bucket_metrics_configuration(tableBucketARN=table_bucket)
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] in (200, 204)
+
+    def test_put_table_bucket_maintenance_configuration(self, s3tables, table_bucket):
+        """PutTableBucketMaintenanceConfiguration sets maintenance configuration."""
+        resp = s3tables.put_table_bucket_maintenance_configuration(
+            tableBucketARN=table_bucket,
+            type="icebergUnreferencedFileRemoval",
+            value={
+                "status": "enabled",
+                "settings": {
+                    "icebergUnreferencedFileRemoval": {
+                        "unreferencedDays": 3,
+                        "nonCurrentDays": 7,
+                    }
+                },
+            },
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] in (200, 204)
+
+
+class TestS3TablesStorageClassAndExpiration:
+    """Test PutTableBucketStorageClass and PutTableRecordExpirationConfiguration."""
+
+    @pytest.fixture
+    def bucket_and_table(self, s3tables):
+        import uuid as _uuid
+
+        bucket_name = f"test-bucket-{_uuid.uuid4().hex[:8]}"
+        bucket_resp = s3tables.create_table_bucket(name=bucket_name)
+        bucket_arn = bucket_resp["arn"]
+        s3tables.create_namespace(tableBucketARN=bucket_arn, namespace=["testns"])
+        table_resp = s3tables.create_table(
+            tableBucketARN=bucket_arn,
+            namespace="testns",
+            name="test-table",
+            format="ICEBERG",
+        )
+        table_arn = table_resp["tableARN"]
+        yield bucket_arn, table_arn
+
+    def test_put_table_bucket_storage_class(self, s3tables, bucket_and_table):
+        """PutTableBucketStorageClass sets storage class on a table bucket."""
+        bucket_arn, _ = bucket_and_table
+        resp = s3tables.put_table_bucket_storage_class(
+            tableBucketARN=bucket_arn,
+            storageClassConfiguration={"storageClass": "STANDARD_INFREQUENT_ACCESS"},
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_put_table_record_expiration_configuration(self, s3tables, bucket_and_table):
+        """PutTableRecordExpirationConfiguration sets expiration on a table."""
+        _, table_arn = bucket_and_table
+        resp = s3tables.put_table_record_expiration_configuration(
+            tableArn=table_arn,
+            value={"status": "enabled", "settings": {"days": 365}},
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] in (200, 204)
+
+
+class TestS3TablesReplicationGapOps:
+    """Tests for S3Tables replication operations (returns 500)."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("s3tables")
+
+    def test_put_table_bucket_replication_returns_response(self, client):
+        from botocore.exceptions import ClientError
+
+        try:
+            resp = client.put_table_bucket_replication(
+                tableBucketARN="arn:aws:s3tables:us-east-1:123456789012:bucket/nonexistent-bucket",
+                configuration={
+                    "role": "arn:aws:iam::123456789012:role/replication-role",
+                    "rules": [
+                        {
+                            "destinations": [
+                                {
+                                    "destinationTableBucketARN": (
+                                        "arn:aws:s3tables:us-east-1:123456789012:bucket/dest"
+                                    )
+                                }
+                            ]
+                        }
+                    ],
+                },
+            )
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] in (200, 204)
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] in (
+                "InternalError",
+                "NotFoundException",
+                "NotImplemented",
+            )
+
+    def test_put_table_replication_returns_response(self, client):
+        from botocore.exceptions import ClientError
+
+        try:
+            resp = client.put_table_replication(
+                tableArn="arn:aws:s3tables:us-east-1:123456789012:bucket/test/table/tbl1",
+                configuration={
+                    "role": "arn:aws:iam::123456789012:role/replication-role",
+                    "rules": [
+                        {
+                            "destinations": [
+                                {
+                                    "destinationTableBucketARN": (
+                                        "arn:aws:s3tables:us-east-1:123456789012:bucket/dest"
+                                    )
+                                }
+                            ]
+                        }
+                    ],
+                },
+            )
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] in (200, 204)
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] in (
+                "InternalError",
+                "NotFoundException",
+                "NotImplemented",
+            )

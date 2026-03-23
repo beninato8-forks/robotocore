@@ -557,3 +557,19 @@ class TestACMExtended:
             assert exc.value.response["Error"]["Code"] == "ValidationException"
         finally:
             acm.delete_certificate(CertificateArn=arn)
+
+
+class TestACMRenewRevoke:
+    FAKE_ARN = "arn:aws:acm:us-east-1:123456789012:certificate/00000000-0000-0000-0000-000000000000"
+
+    def test_renew_certificate_not_found(self, acm):
+        """RenewCertificate with nonexistent ARN raises ResourceNotFoundException."""
+        with pytest.raises(ClientError) as exc:
+            acm.renew_certificate(CertificateArn=self.FAKE_ARN)
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_revoke_certificate_not_found(self, acm):
+        """RevokeCertificate with nonexistent ARN raises ResourceNotFoundException."""
+        with pytest.raises(ClientError) as exc:
+            acm.revoke_certificate(CertificateArn=self.FAKE_ARN, RevocationReason="KEY_COMPROMISE")
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"

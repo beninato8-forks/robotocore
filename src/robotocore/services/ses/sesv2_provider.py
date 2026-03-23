@@ -24,6 +24,7 @@ _templates: dict[str, dict[str, dict]] = {}
 _TEMPLATE_PATH = re.compile(r"^/v2/email/templates/?$")
 _TEMPLATE_ITEM_PATH = re.compile(r"^/v2/email/templates/([^/]+)$")
 _TEMPLATE_RENDER_PATH = re.compile(r"^/v2/email/templates/([^/]+)/render$")
+_MESSAGE_INSIGHTS_PATH = re.compile(r"^/v2/email/insights/([^/]+)/?$")
 
 
 async def handle_sesv2_request(request: Request, region: str, account_id: str) -> Response:
@@ -49,6 +50,11 @@ async def handle_sesv2_request(request: Request, region: str, account_id: str) -
             return _create_email_template(body, region)
         elif method == "GET":
             return _list_email_templates(region)
+
+    m = _MESSAGE_INSIGHTS_PATH.match(path)
+    if m:
+        message_id = m.group(1)
+        return _get_message_insights(message_id)
 
     # Everything else → Moto
     return await forward_to_moto(request, "sesv2", account_id=account_id)
@@ -118,6 +124,17 @@ def _delete_email_template(name: str, region: str) -> Response:
     store = _store(region)
     store.pop(name, None)
     return Response(content=json.dumps({}), status_code=200, media_type="application/json")
+
+
+def _get_message_insights(message_id: str) -> Response:
+    result = {
+        "MessageId": message_id,
+        "FromEmailAddress": "",
+        "Subject": "",
+        "EmailTags": [],
+        "Insights": [],
+    }
+    return Response(content=json.dumps(result), status_code=200, media_type="application/json")
 
 
 def _error(code: str, message: str, status: int) -> Response:

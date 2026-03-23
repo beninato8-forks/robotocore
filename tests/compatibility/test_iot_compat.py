@@ -3367,3 +3367,228 @@ class TestIoTTagOperations:
                 resourceArn=fake_arn,
                 tagKeys=["env"],
             )
+
+
+class TestIoTNewStubOps:
+    """Tests for newly-implemented IoT stub operations."""
+
+    def test_associate_sbom_with_package_version(self, iot):
+        """AssociateSbomWithPackageVersion returns 200 with packageName."""
+        resp = iot.associate_sbom_with_package_version(
+            packageName="test-pkg",
+            versionName="1.0",
+            sbom={"s3Location": {"bucket": "test-bucket", "key": "sbom.json"}},
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "packageName" in resp
+
+    def test_disassociate_sbom_from_package_version(self, iot):
+        """DisassociateSbomFromPackageVersion returns 200."""
+        resp = iot.disassociate_sbom_from_package_version(
+            packageName="test-pkg",
+            versionName="1.0",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_list_sbom_validation_results(self, iot):
+        """ListSbomValidationResults returns empty list."""
+        resp = iot.list_sbom_validation_results(
+            packageName="test-pkg",
+            versionName="1.0",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "validationResultSummaries" in resp
+
+    def test_associate_targets_with_job(self, iot):
+        """AssociateTargetsWithJob returns 200 with jobId."""
+        resp = iot.associate_targets_with_job(
+            targets=["arn:aws:iot:us-east-1:123456789012:thing/test"],
+            jobId="fake-job-id-stub",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_cancel_detect_mitigation_actions_task(self, iot):
+        """CancelDetectMitigationActionsTask returns 200."""
+        resp = iot.cancel_detect_mitigation_actions_task(taskId="fake-task-stub")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_clear_default_authorizer(self, iot):
+        """ClearDefaultAuthorizer returns 200."""
+        resp = iot.clear_default_authorizer()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_create_provisioning_claim(self, iot):
+        """CreateProvisioningClaim returns certificate details."""
+        resp = iot.create_provisioning_claim(templateName="test-template")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "certificateId" in resp
+
+    def test_delete_command_execution(self, iot):
+        """DeleteCommandExecution returns 200."""
+        resp = iot.delete_command_execution(
+            executionId="fake-exec-id",
+            targetArn="arn:aws:iot:us-east-1:123456789012:thing/test",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_delete_registration_code(self, iot):
+        """DeleteRegistrationCode returns 200."""
+        resp = iot.delete_registration_code()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_get_behavior_model_training_summaries(self, iot):
+        """GetBehaviorModelTrainingSummaries returns empty summaries."""
+        resp = iot.get_behavior_model_training_summaries()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "summaries" in resp
+
+    def test_get_buckets_aggregation(self, iot):
+        """GetBucketsAggregation returns totalCount and buckets."""
+        resp = iot.get_buckets_aggregation(
+            queryString="thingName:*",
+            aggregationField="thingName",
+            bucketsAggregationType={"termsAggregation": {"maxBuckets": 10}},
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "totalCount" in resp
+
+    def test_get_cardinality(self, iot):
+        """GetCardinality returns cardinality count."""
+        resp = iot.get_cardinality(queryString="thingName:*")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "cardinality" in resp
+
+    def test_get_command_execution(self, iot):
+        """GetCommandExecution returns execution details."""
+        resp = iot.get_command_execution(
+            executionId="fake-exec-stub",
+            targetArn="arn:aws:iot:us-east-1:123456789012:thing/test",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "executionId" in resp
+
+    def test_get_percentiles(self, iot):
+        """GetPercentiles returns empty list."""
+        resp = iot.get_percentiles(queryString="thingName:*")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "percentiles" in resp
+
+    def test_list_command_executions(self, iot):
+        """ListCommandExecutions returns empty list."""
+        resp = iot.list_command_executions()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "commandExecutions" in resp
+
+    def test_list_principal_things_v2(self, iot):
+        """ListPrincipalThingsV2 returns empty list."""
+        resp = iot.list_principal_things_v2(
+            principal="arn:aws:iot:us-east-1:123456789012:cert/fakecertid123456789012",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "principalThingObjects" in resp
+
+    def test_list_thing_registration_tasks(self, iot):
+        """ListThingRegistrationTasks returns empty taskIds."""
+        resp = iot.list_thing_registration_tasks()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "taskIds" in resp
+
+    def test_list_thing_registration_task_reports(self, iot):
+        """ListThingRegistrationTaskReports returns resourceLinks."""
+        resp = iot.list_thing_registration_task_reports(
+            taskId="fake-task-id",
+            reportType="ERRORS",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "resourceLinks" in resp
+
+    def test_put_verification_state_on_violation(self, iot):
+        """PutVerificationStateOnViolation returns 200."""
+        resp = iot.put_verification_state_on_violation(
+            violationId="fake-violation-id",
+            verificationState="TRUE_POSITIVE",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_register_thing(self, iot):
+        """RegisterThing returns certificate and resource ARNs."""
+        resp = iot.register_thing(
+            templateBody='{"Parameters": {}}',
+            parameters={},
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "resourceArns" in resp
+
+    def test_test_authorization(self, iot):
+        """TestAuthorization returns authResults."""
+        resp = iot.test_authorization(
+            authInfos=[
+                {
+                    "actionType": "PUBLISH",
+                    "resources": ["arn:aws:iot:us-east-1:123456789012:topic/test"],
+                }
+            ],
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "authResults" in resp
+
+    def test_test_invoke_authorizer(self, iot):
+        """TestInvokeAuthorizer returns isAuthenticated."""
+        resp = iot.test_invoke_authorizer(
+            authorizerName="fake-authorizer",
+            token="test-token-value",
+            tokenSignature="dGVzdA==",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "isAuthenticated" in resp
+
+    def test_update_encryption_configuration(self, iot):
+        """UpdateEncryptionConfiguration returns 200."""
+        resp = iot.update_encryption_configuration(encryptionType="AWS_OWNED_KMS_KEY")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestIoTRemainingGapOps:
+    """Tests for IoT gap operations that weren't previously covered."""
+
+    @pytest.fixture
+    def iot(self):  # noqa: F811
+        return make_client("iot")
+
+    def test_create_certificate_provider(self, iot):
+        """CreateCertificateProvider creates a provider or raises AlreadyExists."""
+        import uuid  # noqa: PLC0415
+
+        from botocore.exceptions import ClientError  # noqa: PLC0415
+
+        name = f"cp-{uuid.uuid4().hex[:8]}"
+        try:
+            resp = iot.create_certificate_provider(
+                certificateProviderName=name,
+                lambdaFunctionArn="arn:aws:lambda:us-east-1:123456789012:function:test",
+                accountDefaultForOperations=["CreateCertificateFromCsr"],
+            )
+            assert (
+                "certificateProviderArn" in resp
+                or resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+            )
+        except ClientError as exc:
+            assert exc.value.response["Error"]["Code"] == "ResourceAlreadyExistsException"
+        finally:
+            try:
+                iot.delete_certificate_provider(certificateProviderName=name)
+            except Exception:  # noqa: BLE001
+                pass  # best-effort cleanup
+
+    def test_start_detect_mitigation_actions_task(self, iot):
+        """StartDetectMitigationActionsTask creates a task and returns its ID."""
+        import uuid  # noqa: PLC0415
+
+        task_id = f"task{uuid.uuid4().hex[:13]}"
+        resp = iot.start_detect_mitigation_actions_task(
+            taskId=task_id,
+            target={"securityProfileName": "test-profile"},
+            actions=["RESET_CONFIDENCE_SCORE"],
+            clientRequestToken=f"token-{uuid.uuid4().hex[:8]}",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200

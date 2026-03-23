@@ -96,6 +96,8 @@ PATH_PATTERNS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"^/2014-11-13/functions"), "lambda"),
     (re.compile(r"^/2015-03-31/functions"), "lambda"),
     (re.compile(r"^/2021-\d{2}-\d{2}/functions/"), "lambda"),
+    (re.compile(r"^/2025-11-30/"), "lambda"),
+    (re.compile(r"^/2025-12-01/"), "lambda"),
     (re.compile(r"^/2021-01-01/"), "opensearch"),
     (re.compile(r"^/restapis"), "apigateway"),
     (re.compile(r"^/v2/email/"), "sesv2"),

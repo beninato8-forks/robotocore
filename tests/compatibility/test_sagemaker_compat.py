@@ -5683,3 +5683,15 @@ class TestSageMakerWorkteamCRUD:
         self._create_workteam(sagemaker, name)
         resp = sagemaker.delete_workteam(WorkteamName=name)
         assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestSageMakerBatchAddClusterNodes:
+    """Test BatchAddClusterNodes."""
+
+    def test_batch_add_cluster_nodes(self, sagemaker):
+        """BatchAddClusterNodes returns success."""
+        resp = sagemaker.batch_add_cluster_nodes(
+            ClusterName="test-cluster",
+            NodesToAdd=[{"InstanceGroupName": "worker-group", "IncrementTargetCountBy": 1}],
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200

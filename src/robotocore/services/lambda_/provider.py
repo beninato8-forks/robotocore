@@ -126,6 +126,15 @@ async def handle_lambda_request(request: Request, region: str, account_id: str) 
         # /code-signing-configs
         elif parts[0] == "code-signing-configs":
             return _handle_code_signing_configs(parts, method, body, region, account_id)
+        # /capacity-providers (2025-11-30 API)
+        elif parts[0] == "capacity-providers":
+            return _handle_capacity_providers(parts, method, body, region, account_id)
+        # /durable-executions (2025-12-01 API)
+        elif parts[0] == "durable-executions":
+            return _handle_durable_executions(parts, method, body, region, account_id)
+        # /durable-execution-callbacks (2025-12-01 API)
+        elif parts[0] == "durable-execution-callbacks":
+            return _json(200, {})
         else:
             return _error("InvalidRequest", f"Unknown path: {path}", 400)
 
@@ -968,6 +977,16 @@ def _handle_code_signing_configs(
         if method == "DELETE":
             backend.delete_code_signing_config(config_arn)
             return _json(204, None)
+        if method == "PUT":
+            spec = json.loads(body) if body else {}
+            csc = backend.get_code_signing_config(config_arn)
+            if "Description" in spec:
+                csc.description = spec["Description"]
+            if "AllowedPublishers" in spec:
+                csc.allowed_publishers = spec["AllowedPublishers"]
+            if "CodeSigningPolicies" in spec:
+                csc.policies = spec["CodeSigningPolicies"]
+            return _json(200, {"CodeSigningConfig": csc.to_dict()})
         return _error("InvalidRequest", "Method not allowed", 405)
 
     if len(parts) == 3 and parts[2] == "functions":
@@ -977,6 +996,138 @@ def _handle_code_signing_configs(
         return _error("InvalidRequest", "Method not allowed", 405)
 
     return _error("InvalidRequest", "Unknown code-signing-configs path", 400)
+
+
+# In-memory store for capacity providers (stub implementation)
+_capacity_providers: dict[tuple[str, str, str], dict] = {}
+_capacity_providers_lock = __import__("threading").Lock()
+
+
+def _handle_capacity_providers(
+    parts: list[str], method: str, body: bytes, region: str, account_id: str
+) -> Response:
+    """Handle /capacity-providers endpoints (2025-11-30 API stub)."""
+    if len(parts) == 1:
+        # POST /capacity-providers → CreateCapacityProvider
+        if method == "POST":
+            spec = json.loads(body) if body else {}
+            name = spec.get("CapacityProviderName", "")
+            provider = {
+                "CapacityProviderName": name,
+                "CapacityProviderArn": (
+                    f"arn:aws:lambda:{region}:{account_id}:capacity-provider:{name}"
+                ),
+                "VpcConfig": spec.get("VpcConfig", {}),
+                "PermissionsConfig": spec.get("PermissionsConfig", {}),
+                "Status": "ACTIVE",
+                "Tags": spec.get("Tags", {}),
+            }
+            with _capacity_providers_lock:
+                _capacity_providers[(account_id, region, name)] = provider
+            return _json(201, {"CapacityProvider": provider})
+        # GET /capacity-providers → ListCapacityProviders
+        if method == "GET":
+            with _capacity_providers_lock:
+                providers = [
+                    v
+                    for (aid, reg, _), v in _capacity_providers.items()
+                    if aid == account_id and reg == region
+                ]
+            return _json(200, {"CapacityProviders": providers, "NextMarker": None})
+        return _error("InvalidRequest", "Method not allowed", 405)
+
+    cp_name = parts[1]
+    key = (account_id, region, cp_name)
+
+    if len(parts) == 2:
+        # GET /capacity-providers/{name} → GetCapacityProvider
+        if method == "GET":
+            with _capacity_providers_lock:
+                provider = _capacity_providers.get(key)
+            if provider is None:
+                return _error(
+                    "ResourceNotFoundException",
+                    f"Capacity provider not found: {cp_name}",
+                    404,
+                )
+            return _json(200, {"CapacityProvider": provider})
+        # DELETE /capacity-providers/{name} → DeleteCapacityProvider
+        if method == "DELETE":
+            with _capacity_providers_lock:
+                provider = _capacity_providers.pop(key, None)
+            if provider is None:
+                return _error(
+                    "ResourceNotFoundException",
+                    f"Capacity provider not found: {cp_name}",
+                    404,
+                )
+            return _json(200, {"CapacityProvider": provider})
+        # PUT /capacity-providers/{name} → UpdateCapacityProvider
+        if method == "PUT":
+            spec = json.loads(body) if body else {}
+            with _capacity_providers_lock:
+                provider = _capacity_providers.get(key)
+            if provider is None:
+                return _error(
+                    "ResourceNotFoundException",
+                    f"Capacity provider not found: {cp_name}",
+                    404,
+                )
+            updated = {**provider, **spec, "CapacityProviderName": cp_name}
+            with _capacity_providers_lock:
+                _capacity_providers[key] = updated
+            return _json(200, {"CapacityProvider": updated})
+        return _error("InvalidRequest", "Method not allowed", 405)
+
+    if len(parts) == 3 and parts[2] == "function-versions":
+        # GET /capacity-providers/{name}/function-versions → ListFunctionVersionsByCapacityProvider
+        if method == "GET":
+            cp_arn = f"arn:aws:lambda:{region}:{account_id}:capacity-provider:{cp_name}"
+            return _json(
+                200, {"CapacityProviderArn": cp_arn, "FunctionVersions": [], "NextMarker": None}
+            )
+        return _error("InvalidRequest", "Method not allowed", 405)
+
+    return _error("InvalidRequest", "Unknown capacity-providers path", 400)
+
+
+def _handle_durable_executions(
+    parts: list[str], method: str, body: bytes, region: str, account_id: str
+) -> Response:
+    """Handle /durable-executions endpoints (2025-12-01 API stub)."""
+    if len(parts) == 1:
+        return _json(200, {"DurableExecutions": [], "NextMarker": None})
+
+    exec_arn = parts[1]
+
+    if len(parts) == 2:
+        # GET /durable-executions/{arn} → GetDurableExecution
+        if method == "GET":
+            return _json(
+                200,
+                {
+                    "DurableExecutionArn": exec_arn,
+                    "DurableExecutionName": None,
+                    "Status": "RUNNING",
+                    "FunctionArn": None,
+                },
+            )
+        # DELETE /durable-executions/{arn} → StopDurableExecution
+        if method == "DELETE":
+            return _json(200, {})
+        return _error("InvalidRequest", "Method not allowed", 405)
+
+    sub = parts[2] if len(parts) > 2 else ""
+    if sub == "history":
+        return _json(200, {"Events": [], "NextToken": None})
+    if sub == "state":
+        return _json(200, {"State": None})
+    if sub == "checkpoint":
+        return _json(200, {})
+    if sub == "stop":
+        return _json(200, {})
+
+    return _error("InvalidRequest", "Unknown durable-executions path", 400)
 
 
 def _cascade_delete_function(func_name: str, region: str, account_id: str) -> None:

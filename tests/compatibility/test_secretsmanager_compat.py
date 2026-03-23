@@ -600,3 +600,16 @@ class TestSecretsManagerExtended:
             assert isinstance(resp["ReplicationStatus"], list)
         finally:
             sm.delete_secret(SecretId=name, ForceDeleteWithoutRecovery=True)
+
+
+class TestSecretsManagerMissingGapOps:
+    def test_stop_replication_to_replica(self, sm):
+        import uuid
+
+        name = f"test/stop-repl-{uuid.uuid4().hex[:8]}"
+        sm.create_secret(Name=name, SecretString="value")
+        try:
+            resp = sm.stop_replication_to_replica(SecretId=name)
+            assert "ARN" in resp
+        finally:
+            sm.delete_secret(SecretId=name, ForceDeleteWithoutRecovery=True)

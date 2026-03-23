@@ -2276,3 +2276,83 @@ class TestS3WriteGetObjectResponse:
             Body=b"hello from object lambda",
         )
         assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestS3RestoreObject:
+    """Test RestoreObject."""
+
+    def test_restore_object_nonexistent_bucket(self, s3):
+        """RestoreObject with nonexistent bucket returns NoSuchBucket."""
+        with pytest.raises(ClientError) as exc:
+            s3.restore_object(
+                Bucket="nonexistent-bucket-xyz-123",
+                Key="test-key",
+                RestoreRequest={"Days": 7},
+            )
+        assert exc.value.response["Error"]["Code"] == "NoSuchBucket"
+
+
+class TestS3GapOps:
+    """Tests for S3 operations that weren't previously covered."""
+
+    @pytest.fixture
+    def client(self):
+        return boto3.client(
+            "s3",
+            endpoint_url=ENDPOINT_URL,
+            region_name="us-east-1",
+            aws_access_key_id="testing",
+            aws_secret_access_key="testing",
+        )
+
+    def test_rename_object_no_such_bucket(self, client):
+        """RenameObject raises NoSuchBucket for nonexistent bucket."""
+        from botocore.exceptions import ClientError  # noqa: PLC0415
+
+        with pytest.raises(ClientError) as exc:
+            client.rename_object(
+                Bucket="nonexistent-bucket-xyz-rename",
+                Key="test-key",
+                RenameSource="source-key",
+            )
+        assert exc.value.response["Error"]["Code"] == "NoSuchBucket"
+
+    def test_select_object_content_no_such_bucket(self, client):
+        """SelectObjectContent raises NoSuchBucket for nonexistent bucket."""
+        from botocore.exceptions import ClientError  # noqa: PLC0415
+
+        with pytest.raises(ClientError) as exc:
+            client.select_object_content(
+                Bucket="nonexistent-bucket-xyz-select",
+                Key="test.json",
+                Expression="SELECT * FROM S3Object",
+                ExpressionType="SQL",
+                InputSerialization={"JSON": {"Type": "DOCUMENT"}},
+                OutputSerialization={"JSON": {}},
+            )
+        assert exc.value.response["Error"]["Code"] == "NoSuchBucket"
+
+
+class TestS3UpdateObjectEncryptionGapOp:
+    """Test UpdateObjectEncryption operation."""
+
+    def test_update_object_encryption_no_such_bucket(self):
+        client = boto3.client(
+            "s3",
+            endpoint_url=ENDPOINT_URL,
+            region_name="us-east-1",
+            aws_access_key_id="test",
+            aws_secret_access_key="test",
+        )
+        with pytest.raises(ClientError) as exc:
+            client.update_object_encryption(
+                Bucket="nonexistent-bucket-xyz-987",
+                Key="test-key",
+                ObjectEncryption={
+                    "SSEKMS": {"KMSKeyArn": "arn:aws:kms:us-east-1:123456789012:key/abc123"}
+                },
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "NoSuchBucket",
+            "NotImplemented",
+        )

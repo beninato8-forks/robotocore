@@ -364,3 +364,199 @@ class TestMemoryDBUpdates:
             assert resp["User"]["Name"] == user_name
         finally:
             memorydb.delete_user(UserName=user_name)
+
+
+class TestMemoryDBAclOps:
+    """Tests for ACL create/describe/delete operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("memorydb")
+
+    def test_create_describe_delete_acl(self, client):
+        acl_name = f"acl-{_uid()}"
+        client.create_acl(ACLName=acl_name)
+        try:
+            resp = client.describe_acls(ACLName=acl_name)
+            assert len(resp["ACLs"]) > 0
+            assert resp["ACLs"][0]["Name"] == acl_name
+        finally:
+            client.delete_acl(ACLName=acl_name)
+
+
+class TestMemoryDBAclUpdateOps:
+    """Tests for MemoryDB ACL update and describe operations."""
+
+    def test_update_acl(self, memorydb):
+        """UpdateACL with UserNamesToAdd and UserNamesToRemove returns ACL details."""
+        name = f"acl-upd-{uuid.uuid4().hex[:8]}"
+        memorydb.create_acl(ACLName=name)
+        try:
+            resp = memorydb.update_acl(
+                ACLName=name,
+                UserNamesToAdd=["fake-user"],
+                UserNamesToRemove=["other-user"],
+            )
+            assert "ACL" in resp
+        finally:
+            memorydb.delete_acl(ACLName=name)
+
+    def test_describe_acls_list(self, memorydb):
+        """DescribeACLs with no args lists all ACLs including one we created."""
+        name = f"acl-list-{uuid.uuid4().hex[:8]}"
+        memorydb.create_acl(ACLName=name)
+        try:
+            resp = memorydb.describe_acls()
+            assert "ACLs" in resp
+            assert len(resp["ACLs"]) > 0
+        finally:
+            memorydb.delete_acl(ACLName=name)
+
+
+class TestMemoryDBGapOps:
+    """Tests for memorydb ops that are implemented but weren't tested."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("memorydb")
+
+    def test_delete_cluster_nonexistent(self, client):
+        """DeleteCluster raises ClusterNotFoundFault for nonexistent cluster."""
+        with pytest.raises(ClientError) as exc:
+            client.delete_cluster(ClusterName="nonexistent-cluster-xyz")
+        assert exc.value.response["Error"]["Code"] == "ClusterNotFoundFault"
+
+    def test_tag_resource_nonexistent_cluster(self, client):
+        """TagResource raises ClusterNotFoundFault for nonexistent cluster ARN."""
+        with pytest.raises(ClientError) as exc:
+            client.tag_resource(
+                ResourceArn="arn:aws:memorydb:us-east-1:123456789012:cluster/nonexistent",
+                Tags=[{"Key": "env", "Value": "test"}],
+            )
+        assert exc.value.response["Error"]["Code"] in ("ClusterNotFoundFault", "TagResourceFault")
+
+    def test_untag_resource_nonexistent_cluster(self, client):
+        """UntagResource raises ClusterNotFoundFault for nonexistent cluster ARN."""
+        with pytest.raises(ClientError) as exc:
+            client.untag_resource(
+                ResourceArn="arn:aws:memorydb:us-east-1:123456789012:cluster/nonexistent",
+                TagKeys=["env"],
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "ClusterNotFoundFault",
+            "TagResourceFault",
+            "TagNotFoundFault",
+        )
+
+
+class TestMemoryDBNewStubOps:
+    """Tests for newly-implemented memorydb stub operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("memorydb")
+
+    def test_copy_snapshot_nonexistent(self, client):
+        """CopySnapshot raises SnapshotNotFoundFault for nonexistent source."""
+        with pytest.raises(ClientError) as exc:
+            client.copy_snapshot(
+                SourceSnapshotName="nonexistent-snapshot-xyz",
+                TargetSnapshotName="target-snapshot-xyz",
+            )
+        assert exc.value.response["Error"]["Code"] == "SnapshotNotFoundFault"
+
+    def test_update_subnet_group_nonexistent(self, client):
+        """UpdateSubnetGroup raises SubnetGroupNotFoundFault for nonexistent group."""
+        with pytest.raises(ClientError) as exc:
+            client.update_subnet_group(SubnetGroupName="nonexistent-sg-xyz")
+        assert exc.value.response["Error"]["Code"] == "SubnetGroupNotFoundFault"
+
+    def test_reset_parameter_group_nonexistent(self, client):
+        """ResetParameterGroup raises ParameterGroupNotFoundFault for nonexistent group."""
+        with pytest.raises(ClientError) as exc:
+            client.reset_parameter_group(ParameterGroupName="nonexistent-pg-xyz")
+        assert exc.value.response["Error"]["Code"] == "ParameterGroupNotFoundFault"
+
+    def test_describe_parameters_nonexistent(self, client):
+        """DescribeParameters raises ParameterGroupNotFoundFault for nonexistent group."""
+        with pytest.raises(ClientError) as exc:
+            client.describe_parameters(ParameterGroupName="nonexistent-pg-xyz")
+        assert exc.value.response["Error"]["Code"] == "ParameterGroupNotFoundFault"
+
+    def test_list_allowed_node_type_updates_nonexistent(self, client):
+        """ListAllowedNodeTypeUpdates raises ClusterNotFoundFault for nonexistent cluster."""
+        with pytest.raises(ClientError) as exc:
+            client.list_allowed_node_type_updates(ClusterName="nonexistent-cluster-xyz")
+        assert exc.value.response["Error"]["Code"] == "ClusterNotFoundFault"
+
+    def test_batch_update_cluster(self, client):
+        """BatchUpdateCluster with nonexistent clusters returns them as unprocessed."""
+        resp = client.batch_update_cluster(
+            ClusterNames=["nonexistent-cluster-1", "nonexistent-cluster-2"],
+        )
+        assert "ProcessedClusters" in resp
+        assert "UnprocessedClusters" in resp
+
+    def test_purchase_reserved_nodes_offering(self, client):
+        """PurchaseReservedNodesOffering with a fake offering ID returns a ReservedNode."""
+        resp = client.purchase_reserved_nodes_offering(
+            ReservedNodesOfferingId="fake-offering-id-xyz",
+        )
+        assert "ReservedNode" in resp
+
+
+class TestMemoryDBNewStubMultiRegion:
+    """Tests for newly stubbed MemoryDB multi-region operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("memorydb")
+
+    def test_create_multi_region_cluster(self, client):
+        """CreateMultiRegionCluster returns a MultiRegionCluster object."""
+        resp = client.create_multi_region_cluster(
+            MultiRegionClusterNameSuffix="testcluster-stub",
+            NodeType="db.r6g.large",
+        )
+        assert "MultiRegionCluster" in resp
+
+    def test_describe_multi_region_clusters_empty(self, client):
+        """DescribeMultiRegionClusters returns a list."""
+        resp = client.describe_multi_region_clusters()
+        assert "MultiRegionClusters" in resp
+        assert isinstance(resp["MultiRegionClusters"], list)
+
+    def test_delete_multi_region_cluster(self, client):
+        """DeleteMultiRegionCluster returns a MultiRegionCluster object."""
+        resp = client.delete_multi_region_cluster(MultiRegionClusterName="nonexistent-cluster-xyz")
+        assert "MultiRegionCluster" in resp
+
+    def test_describe_multi_region_parameter_groups(self, client):
+        """DescribeMultiRegionParameterGroups returns a list."""
+        resp = client.describe_multi_region_parameter_groups()
+        assert "MultiRegionParameterGroups" in resp
+        assert isinstance(resp["MultiRegionParameterGroups"], list)
+
+    def test_describe_multi_region_parameters(self, client):
+        """DescribeMultiRegionParameters returns HTTP 200."""
+        resp = client.describe_multi_region_parameters(
+            MultiRegionParameterGroupName="nonexistent-pg-xyz"
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_failover_shard(self, client):
+        """FailoverShard returns a Cluster object."""
+        resp = client.failover_shard(ClusterName="nonexistent-cluster-xyz", ShardName="0001")
+        assert "Cluster" in resp
+
+    def test_list_allowed_multi_region_cluster_updates(self, client):
+        """ListAllowedMultiRegionClusterUpdates returns HTTP 200."""
+        resp = client.list_allowed_multi_region_cluster_updates(
+            MultiRegionClusterName="nonexistent-cluster-xyz"
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_update_multi_region_cluster(self, client):
+        """UpdateMultiRegionCluster returns a MultiRegionCluster object."""
+        resp = client.update_multi_region_cluster(MultiRegionClusterName="nonexistent-cluster-xyz")
+        assert "MultiRegionCluster" in resp

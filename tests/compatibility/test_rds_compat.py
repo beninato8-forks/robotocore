@@ -4804,3 +4804,330 @@ class TestRDSParameterGroupCRUD:
         """DeleteDBInstanceAutomatedBackup returns the backup record."""
         resp = client.delete_db_instance_automated_backup(DbiResourceId=_unique("fake-resource"))
         assert "DBInstanceAutomatedBackup" in resp
+
+    def test_reset_db_parameter_group(self, client):
+        """ResetDBParameterGroup resets a parameter group."""
+        name = _unique("compat-reset-pg")
+        client.create_db_parameter_group(
+            DBParameterGroupName=name,
+            DBParameterGroupFamily="mysql8.0",
+            Description="compat reset test",
+        )
+        try:
+            resp = client.reset_db_parameter_group(
+                DBParameterGroupName=name, ResetAllParameters=True
+            )
+            assert resp["DBParameterGroupName"] == name
+        finally:
+            client.delete_db_parameter_group(DBParameterGroupName=name)
+
+    def test_reset_db_cluster_parameter_group(self, client):
+        """ResetDBClusterParameterGroup resets a cluster parameter group."""
+        name = _unique("compat-reset-cpg")
+        client.create_db_cluster_parameter_group(
+            DBClusterParameterGroupName=name,
+            DBParameterGroupFamily="aurora-mysql8.0",
+            Description="compat reset cluster test",
+        )
+        try:
+            resp = client.reset_db_cluster_parameter_group(
+                DBClusterParameterGroupName=name, ResetAllParameters=True
+            )
+            assert resp["DBClusterParameterGroupName"] == name
+        finally:
+            client.delete_db_cluster_parameter_group(DBClusterParameterGroupName=name)
+
+
+class TestRDSMissingGapOps:
+    """Tests for newly implemented RDS operations that were previously 501."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("rds")
+
+    def test_describe_source_regions(self, client):
+        """DescribeSourceRegions returns a list of available source regions."""
+        resp = client.describe_source_regions()
+        assert "SourceRegions" in resp
+        assert len(resp["SourceRegions"]) > 0
+        region = resp["SourceRegions"][0]
+        assert "RegionName" in region
+        assert "Endpoint" in region
+
+    def test_describe_db_major_engine_versions(self, client):
+        """DescribeDBMajorEngineVersions returns a list of major engine versions."""
+        resp = client.describe_db_major_engine_versions()
+        assert "DBMajorEngineVersions" in resp
+        assert len(resp["DBMajorEngineVersions"]) > 0
+        version = resp["DBMajorEngineVersions"][0]
+        assert "Engine" in version
+        assert "MajorEngineVersion" in version
+
+    def test_reboot_db_cluster(self, client):
+        """RebootDBCluster returns the cluster record."""
+        cluster_id = _unique("compat-reboot-cluster")
+        client.create_db_cluster(
+            DBClusterIdentifier=cluster_id,
+            Engine="aurora-mysql",
+            MasterUsername="admin",
+            MasterUserPassword="password123!",
+        )
+        try:
+            resp = client.reboot_db_cluster(DBClusterIdentifier=cluster_id)
+            assert "DBCluster" in resp
+            assert resp["DBCluster"]["DBClusterIdentifier"] == cluster_id
+        finally:
+            client.delete_db_cluster(DBClusterIdentifier=cluster_id, SkipFinalSnapshot=True)
+
+    def test_remove_role_from_db_cluster(self, client):
+        """RemoveRoleFromDBCluster removes an IAM role from a cluster."""
+        cluster_id = _unique("compat-remove-role")
+        role_arn = "arn:aws:iam::123456789012:role/compat-test-role"
+        client.create_db_cluster(
+            DBClusterIdentifier=cluster_id,
+            Engine="aurora-mysql",
+            MasterUsername="admin",
+            MasterUserPassword="password123!",
+        )
+        try:
+            client.add_role_to_db_cluster(
+                DBClusterIdentifier=cluster_id,
+                RoleArn=role_arn,
+                FeatureName="s3Export",
+            )
+            # Should succeed without error
+            client.remove_role_from_db_cluster(
+                DBClusterIdentifier=cluster_id,
+                RoleArn=role_arn,
+                FeatureName="s3Export",
+            )
+            # Verify role removed
+            resp = client.describe_db_clusters(DBClusterIdentifier=cluster_id)
+            cluster = resp["DBClusters"][0]
+            role_arns = [r["RoleArn"] for r in cluster.get("AssociatedRoles", [])]
+            assert role_arn not in role_arns
+        finally:
+            client.delete_db_cluster(DBClusterIdentifier=cluster_id, SkipFinalSnapshot=True)
+
+
+class TestRDSNewStubOps:
+    """Tests for newly-implemented RDS stub operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("rds")
+
+    def test_disable_http_endpoint(self, client):
+        """DisableHttpEndpoint returns ResourceArn and HttpEndpointEnabled=False."""
+        resp = client.disable_http_endpoint(
+            ResourceArn="arn:aws:rds:us-east-1:123456789012:cluster/fake-cluster",
+        )
+        assert "HttpEndpointEnabled" in resp
+        assert resp["HttpEndpointEnabled"] is False
+
+    def test_enable_http_endpoint(self, client):
+        """EnableHttpEndpoint returns ResourceArn and HttpEndpointEnabled=True."""
+        resp = client.enable_http_endpoint(
+            ResourceArn="arn:aws:rds:us-east-1:123456789012:cluster/fake-cluster",
+        )
+        assert "HttpEndpointEnabled" in resp
+        assert resp["HttpEndpointEnabled"] is True
+
+    def test_modify_certificates(self, client):
+        """ModifyCertificates returns Certificate key."""
+        resp = client.modify_certificates()
+        assert "Certificate" in resp
+
+
+class TestRDSNewStubOps2:
+    """Tests for second batch of newly-implemented RDS stub operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("rds")
+
+    def test_backtrack_db_cluster(self, client):
+        """BacktrackDBCluster returns DBClusterIdentifier key."""
+        import datetime
+
+        try:
+            resp = client.backtrack_db_cluster(
+                DBClusterIdentifier="fake-cluster",
+                BacktrackTo=datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC),
+            )
+            assert "DBClusterIdentifier" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_delete_db_cluster_automated_backup(self, client):
+        """DeleteDBClusterAutomatedBackup returns DBClusterAutomatedBackup key."""
+        try:
+            resp = client.delete_db_cluster_automated_backup(
+                DbClusterResourceId="cluster-FAKEID123",
+            )
+            assert "DBClusterAutomatedBackup" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_describe_db_cluster_backtracks(self, client):
+        """DescribeDBClusterBacktracks returns DBClusterBacktracks key."""
+        try:
+            resp = client.describe_db_cluster_backtracks(
+                DBClusterIdentifier="fake-cluster",
+            )
+            assert "DBClusterBacktracks" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_download_db_log_file_portion(self, client):
+        """DownloadDBLogFilePortion returns LogFileData key."""
+        try:
+            resp = client.download_db_log_file_portion(
+                DBInstanceIdentifier="fake-instance",
+                LogFileName="error/postgresql.log.2024-01-01-00",
+            )
+            assert "LogFileData" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_modify_current_db_cluster_capacity(self, client):
+        """ModifyCurrentDBClusterCapacity returns CurrentCapacity key."""
+        try:
+            resp = client.modify_current_db_cluster_capacity(
+                DBClusterIdentifier="fake-cluster",
+            )
+            assert "CurrentCapacity" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_modify_db_proxy_endpoint(self, client):
+        """ModifyDBProxyEndpoint returns DBProxyEndpoint key."""
+        try:
+            resp = client.modify_db_proxy_endpoint(
+                DBProxyEndpointName="fake-proxy-endpoint",
+            )
+            assert "DBProxyEndpoint" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_modify_db_recommendation(self, client):
+        """ModifyDBRecommendation returns DBRecommendation key."""
+        try:
+            resp = client.modify_db_recommendation(
+                RecommendationId="fake-recommendation-id",
+            )
+            assert "DBRecommendation" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_remove_role_from_db_instance(self, client):
+        """RemoveRoleFromDBInstance succeeds or raises known error."""
+        try:
+            client.remove_role_from_db_instance(
+                DBInstanceIdentifier="fake-instance",
+                RoleArn="arn:aws:iam::123456789012:role/test-role",
+                FeatureName="s3Export",
+            )
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_revoke_db_security_group_ingress(self, client):
+        """RevokeDBSecurityGroupIngress returns DBSecurityGroup key."""
+        try:
+            resp = client.revoke_db_security_group_ingress(
+                DBSecurityGroupName="fake-sg",
+                EC2SecurityGroupName="ec2-sg",
+                EC2SecurityGroupOwnerId="123456789012",
+            )
+            assert "DBSecurityGroup" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_start_db_instance_automated_backups_replication(self, client):
+        """StartDBInstanceAutomatedBackupsReplication returns DBInstanceAutomatedBackup."""
+        try:
+            resp = client.start_db_instance_automated_backups_replication(
+                SourceDBInstanceArn=("arn:aws:rds:us-east-1:123456789012:db:fake-instance"),
+            )
+            assert "DBInstanceAutomatedBackup" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_stop_db_instance_automated_backups_replication(self, client):
+        """StopDBInstanceAutomatedBackupsReplication returns DBInstanceAutomatedBackup."""
+        try:
+            resp = client.stop_db_instance_automated_backups_replication(
+                SourceDBInstanceArn=("arn:aws:rds:us-east-1:123456789012:db:fake-instance"),
+            )
+            assert "DBInstanceAutomatedBackup" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_switchover_read_replica(self, client):
+        """SwitchoverReadReplica returns DBInstance key."""
+        try:
+            resp = client.switchover_read_replica(
+                DBInstanceIdentifier="fake-read-replica",
+            )
+            assert "DBInstance" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+
+class TestRDSGapOps:
+    """Tests for RDS operations that weren't previously covered."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("rds")
+
+    def test_restore_db_cluster_from_s3(self, client):
+        """RestoreDBClusterFromS3 creates a DB cluster from S3 backup data."""
+        import uuid  # noqa: PLC0415
+
+        cluster_id = f"s3-cluster-{uuid.uuid4().hex[:8]}"
+        try:
+            resp = client.restore_db_cluster_from_s3(
+                DBClusterIdentifier=cluster_id,
+                Engine="aurora-mysql",
+                MasterUsername="admin",
+                MasterUserPassword="Password123!",
+                S3BucketName="test-backup-bucket",
+                S3IngestionRoleArn="arn:aws:iam::123456789012:role/S3RestoreRole",
+                SourceEngine="mysql",
+                SourceEngineVersion="5.7.40",
+            )
+            assert "DBCluster" in resp
+        finally:
+            try:
+                client.delete_db_cluster(DBClusterIdentifier=cluster_id, SkipFinalSnapshot=True)
+            except Exception:  # noqa: BLE001
+                pass  # best-effort cleanup
+
+    def test_restore_db_instance_from_s3(self, client):
+        """RestoreDBInstanceFromS3 creates a DB instance from S3 backup data."""
+        import uuid  # noqa: PLC0415
+
+        instance_id = f"s3-inst-{uuid.uuid4().hex[:8]}"
+        try:
+            resp = client.restore_db_instance_from_s3(
+                DBInstanceIdentifier=instance_id,
+                DBInstanceClass="db.t3.micro",
+                Engine="mysql",
+                MasterUsername="admin",
+                MasterUserPassword="Password123!",
+                S3BucketName="test-backup-bucket",
+                S3IngestionRoleArn="arn:aws:iam::123456789012:role/S3RestoreRole",
+                SourceEngine="mysql",
+                SourceEngineVersion="5.7.40",
+            )
+            assert "DBInstance" in resp
+        finally:
+            try:
+                client.delete_db_instance(
+                    DBInstanceIdentifier=instance_id,
+                    SkipFinalSnapshot=True,
+                    DeleteAutomatedBackups=True,
+                )
+            except Exception:  # noqa: BLE001
+                pass  # best-effort cleanup

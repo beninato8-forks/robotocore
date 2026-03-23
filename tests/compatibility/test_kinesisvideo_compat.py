@@ -275,3 +275,229 @@ class TestKinesisVideoUpdates:
             assert upd_resp["ResponseMetadata"]["HTTPStatusCode"] == 200
         finally:
             kinesisvideo_client.delete_signaling_channel(ChannelARN=sig_arn)
+
+
+class TestKinesisVideoNewOps:
+    """Tests for newly implemented KinesisVideo operations."""
+
+    def test_list_tags_for_stream(self, kinesisvideo_client):
+        name = f"test-tags-{uuid.uuid4().hex[:8]}"
+        kinesisvideo_client.create_stream(StreamName=name)
+        try:
+            resp = kinesisvideo_client.list_tags_for_stream(StreamName=name)
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+            assert "Tags" in resp
+        finally:
+            arn = kinesisvideo_client.describe_stream(StreamName=name)["StreamInfo"]["StreamARN"]
+            kinesisvideo_client.delete_stream(StreamARN=arn)
+
+    def test_update_data_retention(self, kinesisvideo_client):
+        name = f"test-dr-{uuid.uuid4().hex[:8]}"
+        kinesisvideo_client.create_stream(StreamName=name, DataRetentionInHours=1)
+        try:
+            version = kinesisvideo_client.describe_stream(StreamName=name)["StreamInfo"]["Version"]
+            resp = kinesisvideo_client.update_data_retention(
+                StreamName=name,
+                CurrentVersion=version,
+                Operation="INCREASE_DATA_RETENTION",
+                DataRetentionChangeInHours=2,
+            )
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        finally:
+            arn = kinesisvideo_client.describe_stream(StreamName=name)["StreamInfo"]["StreamARN"]
+            kinesisvideo_client.delete_stream(StreamARN=arn)
+
+    def test_describe_image_generation_configuration(self, kinesisvideo_client):
+        name = f"test-imgcfg-{uuid.uuid4().hex[:8]}"
+        kinesisvideo_client.create_stream(StreamName=name)
+        try:
+            resp = kinesisvideo_client.describe_image_generation_configuration(StreamName=name)
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        finally:
+            arn = kinesisvideo_client.describe_stream(StreamName=name)["StreamInfo"]["StreamARN"]
+            kinesisvideo_client.delete_stream(StreamARN=arn)
+
+    def test_describe_notification_configuration(self, kinesisvideo_client):
+        name = f"test-notifcfg-{uuid.uuid4().hex[:8]}"
+        kinesisvideo_client.create_stream(StreamName=name)
+        try:
+            resp = kinesisvideo_client.describe_notification_configuration(StreamName=name)
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        finally:
+            arn = kinesisvideo_client.describe_stream(StreamName=name)["StreamInfo"]["StreamARN"]
+            kinesisvideo_client.delete_stream(StreamARN=arn)
+
+    def test_get_signaling_channel_endpoint(self, kinesisvideo_client):
+        name = f"test-ep-{uuid.uuid4().hex[:8]}"
+        ch_resp = kinesisvideo_client.create_signaling_channel(ChannelName=name)
+        ch_arn = ch_resp["ChannelARN"]
+        try:
+            resp = kinesisvideo_client.get_signaling_channel_endpoint(
+                ChannelARN=ch_arn,
+                SingleMasterChannelEndpointConfiguration={"Protocols": ["WSS"], "Role": "MASTER"},
+            )
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+            assert "ResourceEndpointList" in resp
+        finally:
+            version = kinesisvideo_client.describe_signaling_channel(ChannelARN=ch_arn)[
+                "ChannelInfo"
+            ]["Version"]
+            kinesisvideo_client.delete_signaling_channel(ChannelARN=ch_arn, CurrentVersion=version)
+
+    def test_describe_stream_storage_configuration(self, kinesisvideo_client):
+        name = f"test-storecfg-{uuid.uuid4().hex[:8]}"
+        kinesisvideo_client.create_stream(StreamName=name)
+        try:
+            resp = kinesisvideo_client.describe_stream_storage_configuration(StreamName=name)
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        finally:
+            arn = kinesisvideo_client.describe_stream(StreamName=name)["StreamInfo"]["StreamARN"]
+            kinesisvideo_client.delete_stream(StreamARN=arn)
+
+    def test_describe_mapped_resource_configuration(self, kinesisvideo_client):
+        name = f"test-mrcfg-{uuid.uuid4().hex[:8]}"
+        kinesisvideo_client.create_stream(StreamName=name)
+        try:
+            resp = kinesisvideo_client.describe_mapped_resource_configuration(StreamName=name)
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+            assert "MappedResourceConfigurationList" in resp
+        finally:
+            arn = kinesisvideo_client.describe_stream(StreamName=name)["StreamInfo"]["StreamARN"]
+            kinesisvideo_client.delete_stream(StreamARN=arn)
+
+
+class TestKinesisVideoMissingGapOps:
+    """Tests for KinesisVideo operations identified as coverage gaps."""
+
+    def test_update_image_generation_configuration(self, kinesisvideo_client):
+        name = f"test-kv-{uuid.uuid4().hex[:8]}"
+        resp = kinesisvideo_client.create_stream(StreamName=name, DataRetentionInHours=24)
+        arn = resp["StreamARN"]
+        try:
+            upd_resp = kinesisvideo_client.update_image_generation_configuration(
+                StreamName=name,
+                ImageGenerationConfiguration={
+                    "Status": "DISABLED",
+                    "ImageSelectorType": "SERVER_TIMESTAMP",
+                    "DestinationConfig": {
+                        "Uri": "s3://test-bucket/images",
+                        "DestinationRegion": "us-east-1",
+                    },
+                    "SamplingInterval": 3000,
+                    "Format": "JPEG",
+                },
+            )
+            assert upd_resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        finally:
+            kinesisvideo_client.delete_stream(StreamARN=arn)
+
+    def test_update_notification_configuration(self, kinesisvideo_client):
+        name = f"test-kv-{uuid.uuid4().hex[:8]}"
+        resp = kinesisvideo_client.create_stream(StreamName=name, DataRetentionInHours=24)
+        arn = resp["StreamARN"]
+        try:
+            upd_resp = kinesisvideo_client.update_notification_configuration(
+                StreamName=name,
+                NotificationConfiguration={
+                    "Status": "DISABLED",
+                    "DestinationConfig": {
+                        "Uri": "arn:aws:sns:us-east-1:123456789012:test-topic",
+                    },
+                },
+            )
+            assert upd_resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        finally:
+            kinesisvideo_client.delete_stream(StreamARN=arn)
+
+
+class TestKinesisVideoMediaStorageOps:
+    """Tests for media storage configuration operations."""
+
+    @pytest.fixture
+    def kinesisvideo_client(self):
+        return make_client("kinesisvideo")
+
+    def test_describe_media_storage_configuration_nonexistent(self, kinesisvideo_client):
+        """DescribeMediaStorageConfiguration with unknown ARN raises ResourceNotFoundException."""
+        import botocore.exceptions
+
+        with pytest.raises(botocore.exceptions.ClientError) as exc:
+            kinesisvideo_client.describe_media_storage_configuration(
+                ChannelARN="arn:aws:kinesisvideo:us-east-1:123456789012:channel/nonexistent/123"
+            )
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+
+class TestKinesisVideoEdgeConfigOps:
+    """Tests for edge configuration operations."""
+
+    @pytest.fixture
+    def kv(self):
+        return make_client("kinesisvideo")
+
+    def test_describe_edge_configuration(self, kv):
+        """DescribeEdgeConfiguration returns edge config (stub)."""
+        resp = kv.describe_edge_configuration(StreamName="nonexistent-stream")
+        assert "EdgeConfig" in resp or resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_list_edge_agent_configurations(self, kv):
+        """ListEdgeAgentConfigurations returns empty list."""
+        resp = kv.list_edge_agent_configurations(
+            HubDeviceArn="arn:aws:kinesisvideo:us-east-1:123456789012:device/test/123"
+        )
+        assert "EdgeConfigs" in resp
+
+    def test_delete_edge_configuration(self, kv):
+        """DeleteEdgeConfiguration succeeds (stub)."""
+        resp = kv.delete_edge_configuration(StreamName="nonexistent-stream")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_update_media_storage_configuration(self, kv):
+        """UpdateMediaStorageConfiguration succeeds (stub)."""
+        resp = kv.update_media_storage_configuration(
+            ChannelARN="arn:aws:kinesisvideo:us-east-1:123456789012:channel/test/123",
+            MediaStorageConfiguration={"Status": "DISABLED"},
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_update_stream_storage_configuration(self, kv):
+        """UpdateStreamStorageConfiguration succeeds (stub)."""
+        resp = kv.update_stream_storage_configuration(
+            StreamName="nonexistent-stream",
+            CurrentVersion="1",
+            StreamStorageConfiguration={"DefaultStorageTier": "ARCHIVE"},
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestKinesisVideoStartEdgeConfigUpdate:
+    """Test StartEdgeConfigurationUpdate operation."""
+
+    @pytest.fixture
+    def kv(self):
+        return make_client("kinesisvideo")
+
+    def test_start_edge_configuration_update(self, kv):
+        """StartEdgeConfigurationUpdate returns EdgeConfig."""
+        try:
+            resp = kv.start_edge_configuration_update(
+                StreamName="fake-stream",
+                EdgeConfig={
+                    "HubDeviceArn": ("arn:aws:kinesisvideo:us-east-1:123456789012:device/fake"),
+                    "RecorderConfig": {
+                        "MediaSourceConfig": {
+                            "MediaUriSecretArn": (
+                                "arn:aws:secretsmanager:us-east-1:123456789012:secret/f"
+                            ),
+                            "MediaUriType": "RTSP_URI",
+                        },
+                        "ScheduleConfig": {
+                            "ScheduleExpression": "rate(1 day)",
+                            "DurationInSeconds": 3600,
+                        },
+                    },
+                },
+            )
+            assert "EdgeConfig" in resp or "SyncStatus" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None

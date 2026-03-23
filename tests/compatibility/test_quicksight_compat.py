@@ -2811,3 +2811,74 @@ class TestQuickSightDeleteTopic:
         with pytest.raises(quicksight.exceptions.ClientError) as exc_info:
             quicksight.delete_topic(AwsAccountId=ACCOUNT_ID, TopicId="nonexistent")
         assert "ResourceNotFoundException" in str(exc_info.value)
+
+
+class TestQuickSightGapOps:
+    """Tests for QuickSight operations that weren't previously covered."""
+
+    @pytest.fixture
+    def qs(self):
+        return make_client("quicksight")
+
+    def test_list_folders_for_resource(self, qs):
+        """ListFoldersForResource returns a list for any resource ARN."""
+        resp = qs.list_folders_for_resource(
+            AwsAccountId=ACCOUNT_ID,
+            ResourceArn=f"arn:aws:quicksight:us-east-1:{ACCOUNT_ID}:dashboard/nonexistent",
+        )
+        assert "Folders" in resp or resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestQuickSightRemainingGapOps:
+    """Tests for remaining QuickSight gap operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("quicksight")
+
+    def test_create_namespace_not_implemented(self, client):
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc:
+            client.create_namespace(
+                AwsAccountId=ACCOUNT_ID,
+                Namespace="testnamespace123",
+                IdentityStore="QUICKSIGHT",
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "ResourceExistsException",
+            "AccessDeniedException",
+        )
+
+    def test_describe_dashboard_snapshot_job_result(self, client):
+        resp = client.describe_dashboard_snapshot_job_result(
+            AwsAccountId=ACCOUNT_ID,
+            DashboardId="d-nonexistent",
+            SnapshotJobId="job-nonexistent",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "Status" in resp
+
+    def test_describe_folder_resolved_permissions_not_implemented(self, client):
+        from botocore.exceptions import ClientError
+
+        with pytest.raises(ClientError) as exc:
+            client.describe_folder_resolved_permissions(
+                AwsAccountId=ACCOUNT_ID,
+                FolderId="folder-nonexistent",
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "ResourceNotFoundException",
+        )
+
+    def test_get_identity_context_returns_response(self, client):
+        resp = client.get_identity_context(
+            AwsAccountId=ACCOUNT_ID,
+            Namespace="default",
+            UserIdentifier={
+                "UserArn": f"arn:aws:quicksight:us-east-1:{ACCOUNT_ID}:user/default/testuser"
+            },
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200

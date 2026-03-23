@@ -1381,3 +1381,82 @@ class TestKinesisTagsForResource:
                 ResourceARN="arn:aws:kinesis:us-east-1:123456789012:stream/nonexistent-stream-xyz"
             )
         assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+
+class TestKinesisNewOps:
+    """Tests for newly working Kinesis operations."""
+
+    def test_update_account_settings(self, kinesis):
+        """UpdateAccountSettings returns 200."""
+        resp = kinesis.update_account_settings(
+            MinimumThroughputBillingCommitment={"Status": "DISABLED"}
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestKinesisTagResourceAndStreamMode:
+    """Test TagResource, UntagResource, UpdateStreamMode."""
+
+    @pytest.fixture
+    def stream_arn(self, kinesis):
+        name = f"test-tag-stream-{uuid.uuid4().hex[:8]}"
+        kinesis.create_stream(StreamName=name, ShardCount=1)
+        time.sleep(0.3)
+        desc = kinesis.describe_stream(StreamName=name)
+        arn = desc["StreamDescription"]["StreamARN"]
+        yield arn
+        kinesis.delete_stream(StreamName=name)
+
+    def test_tag_and_untag_resource(self, kinesis, stream_arn):
+        """TagResource and UntagResource work on a stream ARN."""
+        kinesis.tag_resource(ResourceARN=stream_arn, Tags={"Env": "test", "App": "myapp"})
+        kinesis.untag_resource(ResourceARN=stream_arn, TagKeys=["App"])
+
+    def test_update_stream_mode(self, kinesis, stream_arn):
+        """UpdateStreamMode changes the stream mode."""
+        resp = kinesis.update_stream_mode(
+            StreamARN=stream_arn, StreamModeDetails={"StreamMode": "ON_DEMAND"}
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestKinesisNewGapOps:
+    """Tests for Kinesis gap operations: UpdateMaxRecordSize, UpdateStreamWarmThroughput."""
+
+    @pytest.fixture
+    def kinesis(self):
+        return make_client("kinesis")
+
+    def test_update_max_record_size_nonexistent(self, kinesis):
+        """UpdateMaxRecordSize raises ResourceNotFoundException for a nonexistent stream."""
+        fake_arn = "arn:aws:kinesis:us-east-1:123456789012:stream/no-such-stream"
+        with pytest.raises(ClientError) as exc:
+            kinesis.update_max_record_size(StreamARN=fake_arn, MaxRecordSizeInKiB=1024)
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+    def test_update_stream_warm_throughput_nonexistent(self, kinesis):
+        """UpdateStreamWarmThroughput raises ResourceNotFoundException for a nonexistent stream."""
+        fake_arn = "arn:aws:kinesis:us-east-1:123456789012:stream/no-such-stream"
+        with pytest.raises(ClientError) as exc:
+            kinesis.update_stream_warm_throughput(StreamARN=fake_arn, WarmThroughputMiBps=1)
+        assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
+
+
+class TestKinesisSubscribeToShardGapOp:
+    """Test SubscribeToShard — requires EventStream, so we test error path."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("kinesis")
+
+    def test_subscribe_to_shard_nonexistent_consumer_not_found(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.subscribe_to_shard(
+                ConsumerARN="arn:aws:kinesis:us-east-1:123456789012:stream/test/consumer/name:123456789",
+                ShardId="shardId-000000000000",
+                StartingPosition={"Type": "TRIM_HORIZON"},
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "ResourceNotFoundException",
+            "LimitExceededException",
+        )

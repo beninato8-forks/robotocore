@@ -2240,3 +2240,266 @@ class TestBackupStartScanJob:
                 ScanMode="INSTANCE_SNAPSHOT_AND_SOURCE",
                 ScannerRoleArn="arn:aws:iam::123456789012:role/scanner-role",
             )
+
+
+class TestBackupGapOperations:
+    """Tests for previously unimplemented backup gap operations."""
+
+    def test_list_backup_plan_versions_returns_list(self, backup):
+        """ListBackupPlanVersions returns a list for an existing plan."""
+        vault_name = _unique("vault")
+        backup.create_backup_vault(BackupVaultName=vault_name)
+        plan_name = _unique("plan")
+        resp = backup.create_backup_plan(
+            BackupPlan={
+                "BackupPlanName": plan_name,
+                "Rules": [
+                    {
+                        "RuleName": "rule1",
+                        "TargetBackupVaultName": vault_name,
+                        "ScheduleExpression": "cron(0 5 ? * * *)",
+                    }
+                ],
+            }
+        )
+        plan_id = resp["BackupPlanId"]
+        try:
+            versions = backup.list_backup_plan_versions(BackupPlanId=plan_id)
+            assert "BackupPlanVersionsList" in versions
+            assert len(versions["BackupPlanVersionsList"]) >= 1
+        finally:
+            backup.delete_backup_plan(BackupPlanId=plan_id)
+            backup.delete_backup_vault(BackupVaultName=vault_name)
+
+    def test_list_backup_selections_returns_list(self, backup):
+        """ListBackupSelections returns an empty list for a plan with no selections."""
+        vault_name = _unique("vault")
+        backup.create_backup_vault(BackupVaultName=vault_name)
+        plan_name = _unique("plan")
+        resp = backup.create_backup_plan(
+            BackupPlan={
+                "BackupPlanName": plan_name,
+                "Rules": [
+                    {
+                        "RuleName": "rule1",
+                        "TargetBackupVaultName": vault_name,
+                        "ScheduleExpression": "cron(0 5 ? * * *)",
+                    }
+                ],
+            }
+        )
+        plan_id = resp["BackupPlanId"]
+        try:
+            sels = backup.list_backup_selections(BackupPlanId=plan_id)
+            assert "BackupSelectionsList" in sels
+        finally:
+            backup.delete_backup_plan(BackupPlanId=plan_id)
+            backup.delete_backup_vault(BackupVaultName=vault_name)
+
+    def test_export_backup_plan_template_returns_json(self, backup):
+        """ExportBackupPlanTemplate returns a non-empty template JSON string."""
+        vault_name = _unique("vault")
+        backup.create_backup_vault(BackupVaultName=vault_name)
+        plan_name = _unique("plan")
+        resp = backup.create_backup_plan(
+            BackupPlan={
+                "BackupPlanName": plan_name,
+                "Rules": [
+                    {
+                        "RuleName": "rule1",
+                        "TargetBackupVaultName": vault_name,
+                        "ScheduleExpression": "cron(0 5 ? * * *)",
+                    }
+                ],
+            }
+        )
+        plan_id = resp["BackupPlanId"]
+        try:
+            tmpl = backup.export_backup_plan_template(BackupPlanId=plan_id)
+            assert "BackupPlanTemplateJson" in tmpl
+            assert len(tmpl["BackupPlanTemplateJson"]) > 0
+        finally:
+            backup.delete_backup_plan(BackupPlanId=plan_id)
+            backup.delete_backup_vault(BackupVaultName=vault_name)
+
+    def test_get_backup_plan_returns_plan_details(self, backup):
+        """GetBackupPlan returns full plan details including BackupPlan and metadata."""
+        vault_name = _unique("vault")
+        backup.create_backup_vault(BackupVaultName=vault_name)
+        plan_name = _unique("plan")
+        resp = backup.create_backup_plan(
+            BackupPlan={
+                "BackupPlanName": plan_name,
+                "Rules": [
+                    {
+                        "RuleName": "rule1",
+                        "TargetBackupVaultName": vault_name,
+                        "ScheduleExpression": "cron(0 5 ? * * *)",
+                    }
+                ],
+            }
+        )
+        plan_id = resp["BackupPlanId"]
+        try:
+            plan = backup.get_backup_plan(BackupPlanId=plan_id)
+            assert "BackupPlan" in plan
+            assert "BackupPlanId" in plan
+            assert "BackupPlanArn" in plan
+            assert "CreationDate" in plan
+        finally:
+            backup.delete_backup_plan(BackupPlanId=plan_id)
+            backup.delete_backup_vault(BackupVaultName=vault_name)
+
+    def test_list_protected_resources_by_backup_vault_returns_results(self, backup):
+        """ListProtectedResourcesByBackupVault returns Results key for an empty vault."""
+        vault_name = _unique("vault")
+        backup.create_backup_vault(BackupVaultName=vault_name)
+        try:
+            resp = backup.list_protected_resources_by_backup_vault(BackupVaultName=vault_name)
+            assert "Results" in resp
+        finally:
+            backup.delete_backup_vault(BackupVaultName=vault_name)
+
+    def test_list_recovery_points_by_backup_vault_returns_list(self, backup):
+        """ListRecoveryPointsByBackupVault returns RecoveryPoints key for an empty vault."""
+        vault_name = _unique("vault")
+        backup.create_backup_vault(BackupVaultName=vault_name)
+        try:
+            resp = backup.list_recovery_points_by_backup_vault(BackupVaultName=vault_name)
+            assert "RecoveryPoints" in resp
+        finally:
+            backup.delete_backup_vault(BackupVaultName=vault_name)
+
+    def test_get_legal_hold_returns_details(self, backup):
+        """GetLegalHold returns legal hold details for an existing hold."""
+        resp = backup.create_legal_hold(
+            Title="test-hold",
+            Description="test description for gap test",
+        )
+        hold_id = resp["LegalHoldId"]
+        try:
+            hold = backup.get_legal_hold(LegalHoldId=hold_id)
+            assert "LegalHoldId" in hold
+            assert hold["LegalHoldId"] == hold_id
+            assert "Title" in hold
+            assert "Status" in hold
+        finally:
+            backup.cancel_legal_hold(
+                LegalHoldId=hold_id,
+                CancelDescription="cleanup",
+            )
+
+    def test_list_indexed_recovery_points_returns_list(self, backup):
+        """ListIndexedRecoveryPoints returns IndexedRecoveryPoints key."""
+        resp = backup.list_indexed_recovery_points()
+        assert "IndexedRecoveryPoints" in resp
+
+    def test_list_scan_job_summaries_returns_list(self, backup):
+        """ListScanJobSummaries returns ScanJobSummaries key."""
+        resp = backup.list_scan_job_summaries()
+        assert "ScanJobSummaries" in resp
+
+    def test_list_restore_access_backup_vaults_returns_list(self, backup):
+        """ListRestoreAccessBackupVaults returns RestoreAccessBackupVaults key."""
+        lag_vault_name = _unique("lag-vault")
+        backup.create_logically_air_gapped_backup_vault(
+            BackupVaultName=lag_vault_name,
+            MaxRetentionDays=365,
+            MinRetentionDays=7,
+        )
+        # No delete API exists for logically air-gapped vaults in boto3
+        resp = backup.list_restore_access_backup_vaults(BackupVaultName=lag_vault_name)
+        assert "RestoreAccessBackupVaults" in resp
+
+    def test_get_restore_testing_inferred_metadata_returns_dict(self, backup):
+        """GetRestoreTestingInferredMetadata returns InferredMetadata key."""
+        vault_name = _unique("vault")
+        backup.create_backup_vault(BackupVaultName=vault_name)
+        try:
+            resp = backup.get_restore_testing_inferred_metadata(
+                BackupVaultName=vault_name,
+                RecoveryPointArn="arn:aws:ec2:us-east-1:123456789012:instance/i-12345678",
+            )
+            assert "InferredMetadata" in resp
+        finally:
+            backup.delete_backup_vault(BackupVaultName=vault_name)
+
+    def test_start_report_job_returns_job_id(self, backup):
+        """StartReportJob returns a ReportJobId for an existing report plan."""
+        rp_name = _unique("rp")
+        backup.create_report_plan(
+            ReportPlanName=rp_name,
+            ReportDeliveryChannel={"S3BucketName": "test-bucket"},
+            ReportSetting={"ReportTemplate": "BACKUP_JOB_REPORT"},
+        )
+        try:
+            resp = backup.start_report_job(ReportPlanName=rp_name)
+            assert "ReportJobId" in resp
+            assert len(resp["ReportJobId"]) > 0
+        finally:
+            backup.delete_report_plan(ReportPlanName=rp_name)
+
+
+class TestBackupMPAAndRestoreAccessOps:
+    """Tests for MPA approval team and restore access backup vault ops."""
+
+    def test_associate_backup_vault_mpa_approval_team(self, backup):
+        """AssociateBackupVaultMpaApprovalTeam returns 204."""
+        resp = backup.associate_backup_vault_mpa_approval_team(
+            BackupVaultName="test-vault-mpa",
+            MpaApprovalTeamArn="arn:aws:mpa:us-east-1:123456789012:approval-team/test",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 204
+
+    def test_disassociate_backup_vault_mpa_approval_team(self, backup):
+        """DisassociateBackupVaultMpaApprovalTeam returns 204."""
+        resp = backup.disassociate_backup_vault_mpa_approval_team(
+            BackupVaultName="test-vault-mpa",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 204
+
+    def test_create_restore_access_backup_vault(self, backup):
+        """CreateRestoreAccessBackupVault returns vault details."""
+        resp = backup.create_restore_access_backup_vault(
+            BackupVaultName="test-restore-access-vault",
+            SourceBackupVaultArn="arn:aws:backup:us-east-1:123456789012:backup-vault:source",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        assert "RestoreAccessBackupVaultArn" in resp
+
+    def test_revoke_restore_access_backup_vault(self, backup):
+        """RevokeRestoreAccessBackupVault returns 200."""
+        resp = backup.revoke_restore_access_backup_vault(
+            BackupVaultName="test-vault",
+            RestoreAccessBackupVaultArn="arn:aws:backup:us-east-1:123456789012:backup-vault:restore",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_get_recovery_point_index_details(self, backup):
+        """GetRecoveryPointIndexDetails returns 200 with index status."""
+        resp = backup.get_recovery_point_index_details(
+            BackupVaultName="test-vault",
+            RecoveryPointArn="arn:aws:backup:us-east-1:123456789012:recovery-point:test-rp",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_update_recovery_point_index_settings(self, backup):
+        """UpdateRecoveryPointIndexSettings returns 200."""
+        resp = backup.update_recovery_point_index_settings(
+            BackupVaultName="test-vault",
+            RecoveryPointArn="arn:aws:backup:us-east-1:123456789012:recovery-point:test-rp",
+            Index="ENABLED",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_create_backup_selection_fake_plan_raises(self, backup):
+        """CreateBackupSelection with fake plan ID raises ResourceNotFoundException."""
+        with pytest.raises(ClientError) as exc_info:
+            backup.create_backup_selection(
+                BackupPlanId="fake-plan-id-that-does-not-exist",
+                BackupSelection={
+                    "SelectionName": "test",
+                    "IamRoleArn": "arn:aws:iam::123456789012:role/test",
+                },
+            )
+        assert exc_info.value.response["Error"]["Code"] == "ResourceNotFoundException"

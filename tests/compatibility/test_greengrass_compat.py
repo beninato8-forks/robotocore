@@ -1308,3 +1308,152 @@ class TestGreengrassOperations:
         finally:
             greengrass.delete_group(GroupId=group["Id"])
             greengrass.delete_core_definition(CoreDefinitionId=cd["Id"])
+
+
+class TestGreengrassMissingGapOps:
+    """Tests for previously untested Greengrass operations."""
+
+    @pytest.fixture
+    def greengrass(self):
+        return make_client("greengrass")
+
+    def test_tag_and_list_and_untag_resource(self, greengrass):
+        """tag_resource, list_tags_for_resource, untag_resource on a group ARN."""
+        arn = "arn:aws:greengrass:us-east-1:123456789012:groups/fake"
+        greengrass.tag_resource(ResourceArn=arn, tags={"env": "test"})
+        response = greengrass.list_tags_for_resource(ResourceArn=arn)
+        assert "tags" in response
+        greengrass.untag_resource(ResourceArn=arn, TagKeys=["env"])
+
+    def test_get_service_role_for_account(self, greengrass):
+        """get_service_role_for_account returns RoleArn."""
+        response = greengrass.get_service_role_for_account()
+        assert "RoleArn" in response
+
+    def test_associate_service_role_to_account(self, greengrass):
+        """associate_service_role_to_account succeeds."""
+        response = greengrass.associate_service_role_to_account(
+            RoleArn="arn:aws:iam::123456789012:role/test"
+        )
+        assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_disassociate_service_role_from_account(self, greengrass):
+        """disassociate_service_role_from_account succeeds."""
+        response = greengrass.disassociate_service_role_from_account()
+        assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_list_bulk_deployments(self, greengrass):
+        """list_bulk_deployments returns BulkDeployments key."""
+        response = greengrass.list_bulk_deployments()
+        assert "BulkDeployments" in response
+
+    def test_get_connectivity_info(self, greengrass):
+        """get_connectivity_info returns ConnectivityInfo for a thing."""
+        response = greengrass.get_connectivity_info(ThingName="fake-thing")
+        assert "ConnectivityInfo" in response
+
+
+class TestGreengrassGapOps:
+    """Tests for Greengrass gap operations that are implemented."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("greengrass")
+
+    def test_update_connectivity_info(self, client):
+        """UpdateConnectivityInfo returns 200 for any thing name."""
+        resp = client.update_connectivity_info(
+            ThingName="fake-thing",
+            ConnectivityInfo=[],
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_start_bulk_deployment(self, client):
+        """StartBulkDeployment returns 200 with BulkDeploymentId."""
+        resp = client.start_bulk_deployment(
+            ExecutionRoleArn="arn:aws:iam::123456789012:role/fake",
+            InputFileUri="s3://fake-bucket/input.json",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_get_bulk_deployment_status(self, client):
+        """GetBulkDeploymentStatus returns 200 for any bulk deployment ID."""
+        resp = client.get_bulk_deployment_status(BulkDeploymentId="fake-id")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_list_bulk_deployment_detailed_reports(self, client):
+        """ListBulkDeploymentDetailedReports returns list for any deployment ID."""
+        resp = client.list_bulk_deployment_detailed_reports(BulkDeploymentId="fake-id")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_get_group_certificate_configuration(self, client):
+        """GetGroupCertificateConfiguration returns 200 for any group ID."""
+        resp = client.get_group_certificate_configuration(GroupId="fake-group-id")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_list_group_certificate_authorities(self, client):
+        """ListGroupCertificateAuthorities returns 200 for any group ID."""
+        resp = client.list_group_certificate_authorities(GroupId="fake-group-id")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_get_group_certificate_authority(self, client):
+        """GetGroupCertificateAuthority returns 200 for any group and CA IDs."""
+        resp = client.get_group_certificate_authority(
+            GroupId="fake-group-id",
+            CertificateAuthorityId="fake-ca-id",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_create_group_certificate_authority(self, client):
+        """CreateGroupCertificateAuthority returns 200 for any group ID."""
+        resp = client.create_group_certificate_authority(GroupId="fake-group-id")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_get_thing_runtime_configuration(self, client):
+        """GetThingRuntimeConfiguration returns 200 for any thing name."""
+        resp = client.get_thing_runtime_configuration(ThingName="fake-thing")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_create_software_update_job(self, client):
+        """CreateSoftwareUpdateJob returns 200 with required params."""
+        resp = client.create_software_update_job(
+            S3UrlSignerRole="arn:aws:iam::123456789012:role/fake",
+            SoftwareToUpdate="core",
+            UpdateAgentLogLevel="INFO",
+            UpdateTargets=["arn:aws:iot:us-east-1:123456789012:thing/fake-device"],
+            UpdateTargetsArchitecture="x86_64",
+            UpdateTargetsOperatingSystem="ubuntu",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestGreengrassUnimplementedGapOps:
+    """Tests for Greengrass gap operations (all return 501)."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("greengrass")
+
+    def test_reset_deployments_not_implemented(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.reset_deployments(GroupId="abc-123-group")
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "BadRequestException",
+        )
+
+    def test_stop_bulk_deployment_not_implemented(self, client):
+        with pytest.raises(ClientError) as exc:
+            client.stop_bulk_deployment(BulkDeploymentId="abc-123-bulk")
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "BadRequestException",
+        )
+
+    def test_update_group_certificate_configuration_returns_200(self, client):
+        resp = client.update_group_certificate_configuration(GroupId="abc-123-group")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_update_thing_runtime_configuration_returns_200(self, client):
+        resp = client.update_thing_runtime_configuration(ThingName="myThing")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200

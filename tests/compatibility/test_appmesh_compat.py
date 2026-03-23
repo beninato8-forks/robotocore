@@ -461,3 +461,325 @@ class TestErrorPaths:
         with pytest.raises(ClientError) as exc_info:
             appmesh_client.list_tags_for_resource(resourceArn=fake_arn)
         assert "NotFound" in exc_info.value.response["Error"]["Code"]
+
+
+class TestVirtualServiceOperations:
+    def test_create_virtual_service(self, appmesh_client, mesh_name):
+        svc_name = f"svc-{uuid.uuid4().hex[:8]}.local"
+        resp = appmesh_client.create_virtual_service(
+            meshName=mesh_name,
+            virtualServiceName=svc_name,
+            spec={},
+        )
+        svc = resp["virtualService"]
+        assert svc["virtualServiceName"] == svc_name
+        assert svc["meshName"] == mesh_name
+        assert "metadata" in svc
+        assert "spec" in svc
+        assert "status" in svc
+        # cleanup
+        appmesh_client.delete_virtual_service(meshName=mesh_name, virtualServiceName=svc_name)
+
+    def test_describe_virtual_service(self, appmesh_client, mesh_name):
+        svc_name = f"svc-{uuid.uuid4().hex[:8]}.local"
+        appmesh_client.create_virtual_service(
+            meshName=mesh_name, virtualServiceName=svc_name, spec={}
+        )
+        try:
+            resp = appmesh_client.describe_virtual_service(
+                meshName=mesh_name, virtualServiceName=svc_name
+            )
+            svc = resp["virtualService"]
+            assert svc["virtualServiceName"] == svc_name
+            assert "metadata" in svc
+            assert svc["metadata"]["version"] >= 1
+        finally:
+            appmesh_client.delete_virtual_service(meshName=mesh_name, virtualServiceName=svc_name)
+
+    def test_update_virtual_service(self, appmesh_client, mesh_name):
+        svc_name = f"svc-{uuid.uuid4().hex[:8]}.local"
+        appmesh_client.create_virtual_service(
+            meshName=mesh_name, virtualServiceName=svc_name, spec={}
+        )
+        try:
+            resp = appmesh_client.update_virtual_service(
+                meshName=mesh_name,
+                virtualServiceName=svc_name,
+                spec={"provider": {"virtualRouter": {"virtualRouterName": "my-router"}}},
+            )
+            svc = resp["virtualService"]
+            assert svc["virtualServiceName"] == svc_name
+            assert svc["metadata"]["version"] >= 2
+        finally:
+            appmesh_client.delete_virtual_service(meshName=mesh_name, virtualServiceName=svc_name)
+
+    def test_list_virtual_services(self, appmesh_client, mesh_name):
+        svc_name = f"svc-{uuid.uuid4().hex[:8]}.local"
+        appmesh_client.create_virtual_service(
+            meshName=mesh_name, virtualServiceName=svc_name, spec={}
+        )
+        try:
+            resp = appmesh_client.list_virtual_services(meshName=mesh_name)
+            svc_names = [s["virtualServiceName"] for s in resp["virtualServices"]]
+            assert svc_name in svc_names
+        finally:
+            appmesh_client.delete_virtual_service(meshName=mesh_name, virtualServiceName=svc_name)
+
+    def test_delete_virtual_service(self, appmesh_client, mesh_name):
+        svc_name = f"svc-{uuid.uuid4().hex[:8]}.local"
+        appmesh_client.create_virtual_service(
+            meshName=mesh_name, virtualServiceName=svc_name, spec={}
+        )
+        resp = appmesh_client.delete_virtual_service(
+            meshName=mesh_name, virtualServiceName=svc_name
+        )
+        svc = resp["virtualService"]
+        assert svc["virtualServiceName"] == svc_name
+
+    def test_describe_virtual_service_not_found(self, appmesh_client, mesh_name):
+        with pytest.raises(ClientError) as exc_info:
+            appmesh_client.describe_virtual_service(
+                meshName=mesh_name, virtualServiceName="nonexistent-svc"
+            )
+        assert "NotFound" in exc_info.value.response["Error"]["Code"]
+
+
+class TestVirtualGatewayOperations:
+    def test_create_virtual_gateway(self, appmesh_client, mesh_name):
+        gw_name = f"gw-{uuid.uuid4().hex[:8]}"
+        resp = appmesh_client.create_virtual_gateway(
+            meshName=mesh_name,
+            virtualGatewayName=gw_name,
+            spec={"listeners": [{"portMapping": {"port": 8080, "protocol": "http"}}]},
+        )
+        gw = resp["virtualGateway"]
+        assert gw["virtualGatewayName"] == gw_name
+        assert gw["meshName"] == mesh_name
+        assert "metadata" in gw
+        assert "spec" in gw
+        assert "status" in gw
+        # cleanup
+        appmesh_client.delete_virtual_gateway(meshName=mesh_name, virtualGatewayName=gw_name)
+
+    def test_describe_virtual_gateway(self, appmesh_client, mesh_name):
+        gw_name = f"gw-{uuid.uuid4().hex[:8]}"
+        appmesh_client.create_virtual_gateway(
+            meshName=mesh_name,
+            virtualGatewayName=gw_name,
+            spec={"listeners": [{"portMapping": {"port": 8080, "protocol": "http"}}]},
+        )
+        try:
+            resp = appmesh_client.describe_virtual_gateway(
+                meshName=mesh_name, virtualGatewayName=gw_name
+            )
+            gw = resp["virtualGateway"]
+            assert gw["virtualGatewayName"] == gw_name
+            assert gw["metadata"]["version"] >= 1
+        finally:
+            appmesh_client.delete_virtual_gateway(meshName=mesh_name, virtualGatewayName=gw_name)
+
+    def test_update_virtual_gateway(self, appmesh_client, mesh_name):
+        gw_name = f"gw-{uuid.uuid4().hex[:8]}"
+        appmesh_client.create_virtual_gateway(
+            meshName=mesh_name,
+            virtualGatewayName=gw_name,
+            spec={"listeners": [{"portMapping": {"port": 8080, "protocol": "http"}}]},
+        )
+        try:
+            resp = appmesh_client.update_virtual_gateway(
+                meshName=mesh_name,
+                virtualGatewayName=gw_name,
+                spec={"listeners": [{"portMapping": {"port": 9090, "protocol": "http"}}]},
+            )
+            gw = resp["virtualGateway"]
+            assert gw["virtualGatewayName"] == gw_name
+            assert gw["metadata"]["version"] >= 2
+        finally:
+            appmesh_client.delete_virtual_gateway(meshName=mesh_name, virtualGatewayName=gw_name)
+
+    def test_list_virtual_gateways(self, appmesh_client, mesh_name):
+        gw_name = f"gw-{uuid.uuid4().hex[:8]}"
+        appmesh_client.create_virtual_gateway(
+            meshName=mesh_name,
+            virtualGatewayName=gw_name,
+            spec={"listeners": [{"portMapping": {"port": 8080, "protocol": "http"}}]},
+        )
+        try:
+            resp = appmesh_client.list_virtual_gateways(meshName=mesh_name)
+            gw_names = [g["virtualGatewayName"] for g in resp["virtualGateways"]]
+            assert gw_name in gw_names
+        finally:
+            appmesh_client.delete_virtual_gateway(meshName=mesh_name, virtualGatewayName=gw_name)
+
+    def test_delete_virtual_gateway(self, appmesh_client, mesh_name):
+        gw_name = f"gw-{uuid.uuid4().hex[:8]}"
+        appmesh_client.create_virtual_gateway(
+            meshName=mesh_name,
+            virtualGatewayName=gw_name,
+            spec={"listeners": [{"portMapping": {"port": 8080, "protocol": "http"}}]},
+        )
+        resp = appmesh_client.delete_virtual_gateway(meshName=mesh_name, virtualGatewayName=gw_name)
+        gw = resp["virtualGateway"]
+        assert gw["virtualGatewayName"] == gw_name
+
+    def test_describe_virtual_gateway_not_found(self, appmesh_client, mesh_name):
+        with pytest.raises(ClientError) as exc_info:
+            appmesh_client.describe_virtual_gateway(
+                meshName=mesh_name, virtualGatewayName="nonexistent-gw"
+            )
+        assert "NotFound" in exc_info.value.response["Error"]["Code"]
+
+
+@pytest.fixture
+def gateway_name(appmesh_client, mesh_name):
+    name = f"gw-{uuid.uuid4().hex[:8]}"
+    appmesh_client.create_virtual_gateway(
+        meshName=mesh_name,
+        virtualGatewayName=name,
+        spec={"listeners": [{"portMapping": {"port": 8080, "protocol": "http"}}]},
+    )
+    yield name
+    try:
+        appmesh_client.delete_virtual_gateway(meshName=mesh_name, virtualGatewayName=name)
+    except Exception:
+        pass  # best-effort cleanup
+
+
+def _gateway_route_spec():
+    return {
+        "httpRoute": {
+            "action": {
+                "target": {
+                    "virtualService": {"virtualServiceName": "my-svc.local"},
+                }
+            },
+            "match": {"prefix": "/"},
+        }
+    }
+
+
+class TestGatewayRouteOperations:
+    def test_create_gateway_route(self, appmesh_client, mesh_name, gateway_name):
+        gr_name = f"gr-{uuid.uuid4().hex[:8]}"
+        resp = appmesh_client.create_gateway_route(
+            meshName=mesh_name,
+            virtualGatewayName=gateway_name,
+            gatewayRouteName=gr_name,
+            spec=_gateway_route_spec(),
+        )
+        gr = resp["gatewayRoute"]
+        assert gr["gatewayRouteName"] == gr_name
+        assert gr["meshName"] == mesh_name
+        assert gr["virtualGatewayName"] == gateway_name
+        assert "metadata" in gr
+        assert "spec" in gr
+        assert "status" in gr
+        # cleanup
+        appmesh_client.delete_gateway_route(
+            meshName=mesh_name, virtualGatewayName=gateway_name, gatewayRouteName=gr_name
+        )
+
+    def test_describe_gateway_route(self, appmesh_client, mesh_name, gateway_name):
+        gr_name = f"gr-{uuid.uuid4().hex[:8]}"
+        appmesh_client.create_gateway_route(
+            meshName=mesh_name,
+            virtualGatewayName=gateway_name,
+            gatewayRouteName=gr_name,
+            spec=_gateway_route_spec(),
+        )
+        try:
+            resp = appmesh_client.describe_gateway_route(
+                meshName=mesh_name,
+                virtualGatewayName=gateway_name,
+                gatewayRouteName=gr_name,
+            )
+            gr = resp["gatewayRoute"]
+            assert gr["gatewayRouteName"] == gr_name
+            assert gr["metadata"]["version"] >= 1
+        finally:
+            appmesh_client.delete_gateway_route(
+                meshName=mesh_name, virtualGatewayName=gateway_name, gatewayRouteName=gr_name
+            )
+
+    def test_update_gateway_route(self, appmesh_client, mesh_name, gateway_name):
+        gr_name = f"gr-{uuid.uuid4().hex[:8]}"
+        appmesh_client.create_gateway_route(
+            meshName=mesh_name,
+            virtualGatewayName=gateway_name,
+            gatewayRouteName=gr_name,
+            spec=_gateway_route_spec(),
+        )
+        try:
+            resp = appmesh_client.update_gateway_route(
+                meshName=mesh_name,
+                virtualGatewayName=gateway_name,
+                gatewayRouteName=gr_name,
+                spec=_gateway_route_spec(),
+            )
+            gr = resp["gatewayRoute"]
+            assert gr["gatewayRouteName"] == gr_name
+            assert gr["metadata"]["version"] >= 2
+        finally:
+            appmesh_client.delete_gateway_route(
+                meshName=mesh_name, virtualGatewayName=gateway_name, gatewayRouteName=gr_name
+            )
+
+    def test_list_gateway_routes(self, appmesh_client, mesh_name, gateway_name):
+        gr_name = f"gr-{uuid.uuid4().hex[:8]}"
+        appmesh_client.create_gateway_route(
+            meshName=mesh_name,
+            virtualGatewayName=gateway_name,
+            gatewayRouteName=gr_name,
+            spec=_gateway_route_spec(),
+        )
+        try:
+            resp = appmesh_client.list_gateway_routes(
+                meshName=mesh_name, virtualGatewayName=gateway_name
+            )
+            gr_names = [g["gatewayRouteName"] for g in resp["gatewayRoutes"]]
+            assert gr_name in gr_names
+        finally:
+            appmesh_client.delete_gateway_route(
+                meshName=mesh_name, virtualGatewayName=gateway_name, gatewayRouteName=gr_name
+            )
+
+    def test_delete_gateway_route(self, appmesh_client, mesh_name, gateway_name):
+        gr_name = f"gr-{uuid.uuid4().hex[:8]}"
+        appmesh_client.create_gateway_route(
+            meshName=mesh_name,
+            virtualGatewayName=gateway_name,
+            gatewayRouteName=gr_name,
+            spec=_gateway_route_spec(),
+        )
+        resp = appmesh_client.delete_gateway_route(
+            meshName=mesh_name, virtualGatewayName=gateway_name, gatewayRouteName=gr_name
+        )
+        gr = resp["gatewayRoute"]
+        assert gr["gatewayRouteName"] == gr_name
+
+    def test_describe_gateway_route_not_found(self, appmesh_client, mesh_name, gateway_name):
+        with pytest.raises(ClientError) as exc_info:
+            appmesh_client.describe_gateway_route(
+                meshName=mesh_name,
+                virtualGatewayName=gateway_name,
+                gatewayRouteName="nonexistent-gr",
+            )
+        assert "NotFound" in exc_info.value.response["Error"]["Code"]
+
+
+class TestUntagResource:
+    def test_untag_resource(self, appmesh_client):
+        name = f"tagged-mesh-{uuid.uuid4().hex[:8]}"
+        mesh = appmesh_client.create_mesh(
+            meshName=name,
+            tags=[{"key": "env", "value": "test"}, {"key": "team", "value": "platform"}],
+        )
+        arn = mesh["mesh"]["metadata"]["arn"]
+        try:
+            appmesh_client.untag_resource(resourceArn=arn, tagKeys=["env"])
+            resp = appmesh_client.list_tags_for_resource(resourceArn=arn)
+            tag_keys = [t["key"] for t in resp["tags"]]
+            assert "env" not in tag_keys
+            assert "team" in tag_keys
+        finally:
+            appmesh_client.delete_mesh(meshName=name)

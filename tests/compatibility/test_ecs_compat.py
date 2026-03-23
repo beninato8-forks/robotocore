@@ -1328,3 +1328,58 @@ class TestEcsServiceDeploymentOperations:
         resp = ecs.describe_service_revisions(serviceRevisionArns=[])
         assert "serviceRevisions" in resp
         assert isinstance(resp["serviceRevisions"], list)
+
+
+class TestECSMissingGapOps:
+    """Tests for previously-missing ECS operations."""
+
+    def test_stop_service_deployment(self, ecs):
+        """StopServiceDeployment returns 200."""
+        fake_arn = "arn:aws:ecs:us-east-1:123456789012:service-deployment/test/fake-deployment"
+        resp = ecs.stop_service_deployment(serviceDeploymentArn=fake_arn)
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_submit_attachment_state_changes(self, ecs):
+        """SubmitAttachmentStateChanges returns an acknowledgment."""
+        resp = ecs.submit_attachment_state_changes(
+            cluster="default",
+            attachments=[
+                {
+                    "attachmentArn": "arn:aws:ecs:us-east-1:123456789012:attachment/abc",
+                    "status": "ATTACHED",
+                }
+            ],
+        )
+        assert "acknowledgment" in resp
+
+
+class TestECSExpressGatewayService:
+    """Tests for ECS Express Gateway Service ops."""
+
+    def test_create_express_gateway_service(self, ecs):
+        """CreateExpressGatewayService returns 200."""
+        resp = ecs.create_express_gateway_service(
+            serviceName="test-express-svc",
+            executionRoleArn="arn:aws:iam::123456789012:role/exec-role",
+            infrastructureRoleArn="arn:aws:iam::123456789012:role/infra-role",
+            primaryContainer={"image": "nginx:latest", "containerPort": 80},
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_describe_express_gateway_service(self, ecs):
+        """DescribeExpressGatewayService with fake ARN returns 200."""
+        fake_arn = "arn:aws:ecs:us-east-1:123456789012:express-gateway-service/fake"
+        resp = ecs.describe_express_gateway_service(serviceArn=fake_arn)
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_update_express_gateway_service(self, ecs):
+        """UpdateExpressGatewayService with fake ARN returns 200."""
+        fake_arn = "arn:aws:ecs:us-east-1:123456789012:express-gateway-service/fake"
+        resp = ecs.update_express_gateway_service(serviceArn=fake_arn)
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_delete_express_gateway_service(self, ecs):
+        """DeleteExpressGatewayService with fake ARN returns 200."""
+        fake_arn = "arn:aws:ecs:us-east-1:123456789012:express-gateway-service/fake"
+        resp = ecs.delete_express_gateway_service(serviceArn=fake_arn)
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200

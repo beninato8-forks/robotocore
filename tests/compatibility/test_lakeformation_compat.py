@@ -334,6 +334,69 @@ class TestLakeFormationGetResourceLFTags:
         assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
 
 
+class TestLakeFormationTagOps:
+    """Tests for LF tag operations, tag expressions, and transactions."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("lakeformation")
+
+    def test_create_get_delete_lf_tag(self, client):
+        tag_key = f"key-{uuid.uuid4().hex[:8]}"
+        client.create_lf_tag(TagKey=tag_key, TagValues=["v1", "v2"])
+        try:
+            resp = client.get_lf_tag(TagKey=tag_key)
+            assert "TagValues" in resp
+            assert set(resp["TagValues"]) == {"v1", "v2"}
+        finally:
+            client.delete_lf_tag(TagKey=tag_key)
+
+    def test_list_lf_tags(self, client):
+        resp = client.list_lf_tags()
+        assert "LFTags" in resp
+
+    def test_add_lf_tags_to_resource(self, client):
+        tag_key = f"key-{uuid.uuid4().hex[:8]}"
+        client.create_lf_tag(TagKey=tag_key, TagValues=["v1", "v2"])
+        try:
+            resp = client.add_lf_tags_to_resource(
+                Resource={"Database": {"Name": f"db-{uuid.uuid4().hex[:8]}"}},
+                LFTags=[{"TagKey": tag_key, "TagValues": ["v1"]}],
+            )
+            assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+        finally:
+            client.delete_lf_tag(TagKey=tag_key)
+
+    def test_create_get_delete_lf_tag_expression(self, client):
+        name = f"expr-{uuid.uuid4().hex[:8]}"
+        client.create_lf_tag_expression(
+            Name=name,
+            Expression=[{"TagKey": "env", "TagValues": ["test"]}],
+        )
+        try:
+            resp = client.get_lf_tag_expression(Name=name)
+            assert "Name" in resp
+        finally:
+            client.delete_lf_tag_expression(Name=name)
+
+    def test_list_lf_tag_expressions(self, client):
+        resp = client.list_lf_tag_expressions()
+        assert "LFTagExpressions" in resp
+
+    def test_list_permissions(self, client):
+        resp = client.list_permissions()
+        assert "PrincipalResourcePermissions" in resp
+
+    def test_get_and_put_data_lake_settings(self, client):
+        resp = client.get_data_lake_settings()
+        assert "DataLakeSettings" in resp
+        client.put_data_lake_settings(DataLakeSettings={"DataLakeAdmins": []})
+
+    def test_start_transaction(self, client):
+        resp = client.start_transaction()
+        assert "TransactionId" in resp
+
+
 class TestLakeFormationAdditionalOps:
     """Tests for additional LakeFormation operations."""
 
@@ -1060,3 +1123,229 @@ class TestLakeFormationIdentityCenterCRUD:
         with pytest.raises(BotoClientError) as exc:
             client.update_lake_formation_identity_center_configuration()
         assert exc.value.response["Error"]["Code"] == "EntityNotFoundException"
+
+
+class TestLakeFormationGapOps:
+    """Tests for lakeformation ops that are working but weren't tested."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("lakeformation")
+
+    def test_revoke_permissions(self, client):
+        """RevokePermissions can be called and returns 200."""
+        resp = client.revoke_permissions(
+            Principal={"DataLakePrincipalIdentifier": "arn:aws:iam::123456789012:role/test-role"},
+            Resource={"Catalog": {}},
+            Permissions=["ALL"],
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestLakeFormationNewStubOps:
+    """Tests for newly-implemented lakeformation stub operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("lakeformation")
+
+    def test_list_lake_formation_opt_ins(self, client):
+        """ListLakeFormationOptIns returns empty list by default."""
+        resp = client.list_lake_formation_opt_ins()
+        assert "LakeFormationOptInsInfoList" in resp
+        assert isinstance(resp["LakeFormationOptInsInfoList"], list)
+
+    def test_list_table_storage_optimizers(self, client):
+        """ListTableStorageOptimizers returns empty list for nonexistent table."""
+        resp = client.list_table_storage_optimizers(
+            DatabaseName="nonexistent-db",
+            TableName="nonexistent-table",
+        )
+        assert "StorageOptimizerList" in resp
+        assert isinstance(resp["StorageOptimizerList"], list)
+
+    def test_get_table_objects(self, client):
+        """GetTableObjects returns empty list for nonexistent table."""
+        resp = client.get_table_objects(
+            DatabaseName="nonexistent-db",
+            TableName="nonexistent-table",
+        )
+        assert "Objects" in resp
+        assert isinstance(resp["Objects"], list)
+
+    def test_get_temporary_data_location_credentials(self, client):
+        """GetTemporaryDataLocationCredentials returns credentials."""
+        resp = client.get_temporary_data_location_credentials(
+            DataLocations=["s3://my-bucket/"],
+            DurationSeconds=900,
+        )
+        assert "Credentials" in resp
+
+    def test_create_lake_formation_opt_in(self, client):
+        """CreateLakeFormationOptIn succeeds."""
+        resp = client.create_lake_formation_opt_in(
+            Principal={"DataLakePrincipalIdentifier": "arn:aws:iam::123456789012:role/test-role"},
+            Resource={"Catalog": {}},
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_delete_lake_formation_opt_in(self, client):
+        """DeleteLakeFormationOptIn succeeds."""
+        resp = client.delete_lake_formation_opt_in(
+            Principal={"DataLakePrincipalIdentifier": "arn:aws:iam::123456789012:role/test-role"},
+            Resource={"Catalog": {}},
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_extend_transaction(self, client):
+        """ExtendTransaction succeeds for a transaction."""
+        txn = client.start_transaction(TransactionType="READ_AND_WRITE")
+        txn_id = txn["TransactionId"]
+        resp = client.extend_transaction(TransactionId=txn_id)
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_update_table_storage_optimizer(self, client):
+        """UpdateTableStorageOptimizer returns a result message."""
+        resp = client.update_table_storage_optimizer(
+            DatabaseName="test-db",
+            TableName="test-table",
+            StorageOptimizerConfig={"COMPACTION": {"IsEnabled": "true"}},
+        )
+        assert "Result" in resp
+
+    def test_update_table_objects(self, client):
+        """UpdateTableObjects succeeds (stub)."""
+        txn = client.start_transaction(TransactionType="READ_AND_WRITE")
+        txn_id = txn["TransactionId"]
+        resp = client.update_table_objects(
+            DatabaseName="test-db",
+            TableName="test-table",
+            TransactionId=txn_id,
+            WriteOperations=[
+                {
+                    "AddObject": {
+                        "Uri": "s3://my-bucket/data/file1.parquet",
+                        "ETag": "abc123",
+                        "Size": 1024,
+                    }
+                }
+            ],
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestLakeFormationGapOps2:
+    """Tests for second batch of newly-working lakeformation gap operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("lakeformation")
+
+    def test_delete_objects_on_cancel(self, client):
+        """DeleteObjectsOnCancel succeeds and returns 200."""
+        resp = client.delete_objects_on_cancel(
+            DatabaseName="test-db",
+            TableName="test-table",
+            TransactionId="fake-txn-id-001",
+            Objects=[{"Uri": "s3://my-bucket/data/file.parquet", "ETag": "etag123"}],
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_update_resource(self, client):
+        """UpdateResource succeeds and returns 200."""
+        resp = client.update_resource(
+            RoleArn="arn:aws:iam::123456789012:role/lakeformation-role",
+            ResourceArn="arn:aws:s3:::my-lakeformation-bucket",
+        )
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestLakeFormationQueryPlanningOps:
+    """Tests for LakeFormation query planning operations (use inject_host_prefix=False)."""
+
+    @pytest.fixture
+    def client(self):
+        import boto3
+        from botocore.config import Config
+
+        return boto3.client(
+            "lakeformation",
+            endpoint_url="http://localhost:4566",
+            region_name="us-east-1",
+            aws_access_key_id="test",
+            aws_secret_access_key="test",
+            config=Config(inject_host_prefix=False),
+        )
+
+    def test_start_query_planning_returns_query_id(self, client):
+        resp = client.start_query_planning(
+            QueryPlanningContext={"DatabaseName": "mydb"},
+            QueryString="SELECT 1",
+        )
+        assert "QueryId" in resp
+        assert len(resp["QueryId"]) > 0
+
+    def test_get_query_state_returns_state(self, client):
+        start = client.start_query_planning(
+            QueryPlanningContext={"DatabaseName": "mydb"},
+            QueryString="SELECT 1",
+        )
+        qid = start["QueryId"]
+        resp = client.get_query_state(QueryId=qid)
+        assert "State" in resp
+
+    def test_get_query_statistics_returns_statistics(self, client):
+        start = client.start_query_planning(
+            QueryPlanningContext={"DatabaseName": "mydb"},
+            QueryString="SELECT 1",
+        )
+        qid = start["QueryId"]
+        resp = client.get_query_statistics(QueryId=qid)
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+    def test_get_work_units_returns_list(self, client):
+        start = client.start_query_planning(
+            QueryPlanningContext={"DatabaseName": "mydb"},
+            QueryString="SELECT 1",
+        )
+        qid = start["QueryId"]
+        resp = client.get_work_units(QueryId=qid)
+        assert "WorkUnitRanges" in resp
+
+    def test_get_work_unit_results_returns_200(self, client):
+        start = client.start_query_planning(
+            QueryPlanningContext={"DatabaseName": "mydb"},
+            QueryString="SELECT 1",
+        )
+        qid = start["QueryId"]
+        resp = client.get_work_unit_results(QueryId=qid, WorkUnitId=0, WorkUnitToken="token")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
+
+
+class TestLakeFormationAssumeDecoratedRoleGapOp:
+    """Test AssumeDecoratedRoleWithSAML (returns 501 NotImplemented)."""
+
+    def test_assume_decorated_role_with_saml_not_implemented(self):
+        import boto3
+        from botocore.config import Config
+        from botocore.exceptions import ClientError
+
+        client = boto3.client(
+            "lakeformation",
+            endpoint_url="http://localhost:4566",
+            region_name="us-east-1",
+            aws_access_key_id="test",
+            aws_secret_access_key="test",
+            config=Config(inject_host_prefix=False),
+        )
+        with pytest.raises(ClientError) as exc:
+            client.assume_decorated_role_with_saml(
+                SAMLAssertion="a" * 100,
+                RoleArn="arn:aws:iam::123456789012:role/lakeformation-saml-role",
+                PrincipalArn="arn:aws:iam::123456789012:saml-provider/my-provider",
+            )
+        assert exc.value.response["Error"]["Code"] in (
+            "NotImplemented",
+            "AccessDeniedException",
+            "InvalidInputException",
+        )

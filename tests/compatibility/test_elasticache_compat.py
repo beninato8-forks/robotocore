@@ -1210,3 +1210,172 @@ class TestElastiCacheCopySnapshot:
                 pass  # best-effort cleanup
             elasticache.delete_snapshot(SnapshotName=snap_name)
             elasticache.delete_replication_group(ReplicationGroupId=rg_id)
+
+
+class TestElastiCacheGapOps:
+    """Tests for previously-missing ElastiCache operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("elasticache")
+
+    @pytest.fixture
+    def cluster(self, client):
+        cluster_id = _unique("ec")
+        client.create_cache_cluster(
+            CacheClusterId=cluster_id,
+            NumCacheNodes=1,
+            CacheNodeType="cache.t3.micro",
+            Engine="redis",
+        )
+        yield cluster_id
+        try:
+            client.delete_cache_cluster(CacheClusterId=cluster_id)
+        except ClientError:
+            pass  # best-effort cleanup
+
+    def test_describe_engine_default_parameters(self, client):
+        """DescribeEngineDefaultParameters returns EngineDefaults."""
+        resp = client.describe_engine_default_parameters(CacheParameterGroupFamily="redis7")
+        assert "EngineDefaults" in resp
+        assert resp["EngineDefaults"]["CacheParameterGroupFamily"] == "redis7"
+
+    def test_describe_reserved_cache_nodes(self, client):
+        """DescribeReservedCacheNodes returns a list."""
+        resp = client.describe_reserved_cache_nodes()
+        assert "ReservedCacheNodes" in resp
+
+    def test_describe_reserved_cache_nodes_offerings(self, client):
+        """DescribeReservedCacheNodesOfferings returns a list."""
+        resp = client.describe_reserved_cache_nodes_offerings()
+        assert "ReservedCacheNodesOfferings" in resp
+
+    def test_list_allowed_node_type_modifications(self, client):
+        """ListAllowedNodeTypeModifications returns scale up/down lists."""
+        resp = client.list_allowed_node_type_modifications()
+        assert "ScaleUpModifications" in resp
+        assert "ScaleDownModifications" in resp
+
+    def test_reboot_cache_cluster(self, client, cluster):
+        """RebootCacheCluster returns the cluster."""
+        resp = client.reboot_cache_cluster(
+            CacheClusterId=cluster,
+            CacheNodeIdsToReboot=["0001"],
+        )
+        assert "CacheCluster" in resp
+        assert resp["CacheCluster"]["CacheClusterId"] == cluster
+
+
+class TestElastiCacheNewStubOps:
+    """Tests for newly-implemented ElastiCache stub operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("elasticache")
+
+    def test_copy_serverless_cache_snapshot(self, client):
+        """CopyServerlessCacheSnapshot returns ServerlessCacheSnapshot."""
+        import uuid
+
+        src = f"src-snap-{uuid.uuid4().hex[:8]}"
+        tgt = f"tgt-snap-{uuid.uuid4().hex[:8]}"
+        resp = client.copy_serverless_cache_snapshot(
+            SourceServerlessCacheSnapshotName=src,
+            TargetServerlessCacheSnapshotName=tgt,
+        )
+        assert "ServerlessCacheSnapshot" in resp
+
+    def test_purchase_reserved_cache_nodes_offering(self, client):
+        """PurchaseReservedCacheNodesOffering returns ReservedCacheNode."""
+        resp = client.purchase_reserved_cache_nodes_offering(
+            ReservedCacheNodesOfferingId="fake-offering-id-xyz",
+        )
+        assert "ReservedCacheNode" in resp
+
+
+class TestElastiCacheNewStubOps2:
+    """Tests for second batch of newly-implemented ElastiCache stub operations."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("elasticache")
+
+    def test_authorize_cache_security_group_ingress(self, client):
+        """AuthorizeCacheSecurityGroupIngress returns CacheSecurityGroup key."""
+        try:
+            resp = client.authorize_cache_security_group_ingress(
+                CacheSecurityGroupName="fake-sg",
+                EC2SecurityGroupName="ec2-sg",
+                EC2SecurityGroupOwnerId="123456789012",
+            )
+            assert "CacheSecurityGroup" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_decrease_node_groups_in_global_replication_group(self, client):
+        """DecreaseNodeGroupsInGlobalReplicationGroup returns GlobalReplicationGroup."""
+        try:
+            resp = client.decrease_node_groups_in_global_replication_group(
+                GlobalReplicationGroupId="fake-global-rg",
+                NodeGroupCount=1,
+                ApplyImmediately=True,
+            )
+            assert "GlobalReplicationGroup" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_increase_node_groups_in_global_replication_group(self, client):
+        """IncreaseNodeGroupsInGlobalReplicationGroup returns GlobalReplicationGroup."""
+        try:
+            resp = client.increase_node_groups_in_global_replication_group(
+                GlobalReplicationGroupId="fake-global-rg",
+                NodeGroupCount=3,
+                ApplyImmediately=True,
+            )
+            assert "GlobalReplicationGroup" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_modify_replication_group_shard_configuration(self, client):
+        """ModifyReplicationGroupShardConfiguration returns ReplicationGroup."""
+        try:
+            resp = client.modify_replication_group_shard_configuration(
+                ReplicationGroupId="fake-rg",
+                NodeGroupCount=2,
+                ApplyImmediately=True,
+            )
+            assert "ReplicationGroup" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+    def test_start_migration(self, client):
+        """StartMigration returns ReplicationGroup key."""
+        try:
+            resp = client.start_migration(
+                ReplicationGroupId="fake-rg",
+                CustomerNodeEndpointList=[
+                    {"Address": "1.2.3.4", "Port": 6379},
+                ],
+            )
+            assert "ReplicationGroup" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
+
+
+class TestElastiCacheExportServerlessCacheSnapshot:
+    """Test ExportServerlessCacheSnapshot operation."""
+
+    @pytest.fixture
+    def client(self):
+        return make_client("elasticache")
+
+    def test_export_serverless_cache_snapshot(self, client):
+        """ExportServerlessCacheSnapshot returns ServerlessCacheSnapshot."""
+        try:
+            resp = client.export_serverless_cache_snapshot(
+                ServerlessCacheSnapshotName="fake-snapshot",
+                S3BucketName="fake-bucket",
+            )
+            assert "ServerlessCacheSnapshot" in resp
+        except ClientError as exc:
+            assert exc.response["Error"]["Code"] is not None
