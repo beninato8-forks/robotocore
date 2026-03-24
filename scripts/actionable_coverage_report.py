@@ -44,10 +44,9 @@ def run_command(cmd: list[str]) -> dict | str:
 
 def get_coverage_data(service: str) -> dict:
     """Get coverage data for a service."""
-    result = run_command([
-        "uv", "run", "python", "scripts/compat_coverage.py",
-        "--service", service, "--json"
-    ])
+    result = run_command(
+        ["uv", "run", "python", "scripts/compat_coverage.py", "--service", service, "--json"]
+    )
     if isinstance(result, list) and result:
         return result[0]
     return {}
@@ -57,16 +56,16 @@ def get_probe_data(service: str) -> dict:
     """Get probe data for a service (what's actually implemented)."""
     # Check if server is running
     import urllib.request
+
     try:
         urllib.request.urlopen("http://localhost:4566/_robotocore/health", timeout=2)
     except Exception:
         print("Warning: Server not running, probe data unavailable", file=sys.stderr)
         return {}
 
-    result = run_command([
-        "uv", "run", "python", "scripts/probe_service.py",
-        "--service", service, "--all", "--json"
-    ])
+    result = run_command(
+        ["uv", "run", "python", "scripts/probe_service.py", "--service", service, "--all", "--json"]
+    )
     return result if isinstance(result, dict) else {}
 
 
@@ -75,10 +74,9 @@ def get_quality_data(test_file: str) -> dict:
     if not Path(test_file).exists():
         return {}
 
-    result = run_command([
-        "uv", "run", "python", "scripts/validate_test_quality.py",
-        "--file", test_file, "--json"
-    ])
+    result = run_command(
+        ["uv", "run", "python", "scripts/validate_test_quality.py", "--file", test_file, "--json"]
+    )
     return result if isinstance(result, dict) else {}
 
 
@@ -123,10 +121,9 @@ def analyze_service(service: str, with_probe: bool = False) -> dict:
         # For now, estimate based on quality percentage
         weak_count = quality.get("no_assertion", 0)
         if weak_count > 0:
-            tested_weak.append({
-                "count": weak_count,
-                "note": f"{weak_count} tests have no meaningful assertions"
-            })
+            tested_weak.append(
+                {"count": weak_count, "note": f"{weak_count} tests have no meaningful assertions"}
+            )
 
     # Category 3: Not implemented (NEEDS PROVIDER WORK)
     not_implemented = []
@@ -139,10 +136,9 @@ def analyze_service(service: str, with_probe: bool = False) -> dict:
     well_tested = []
     if quality:
         effective_count = quality.get("server_contact_with_assertions", 0)
-        well_tested.append({
-            "count": effective_count,
-            "note": f"{effective_count} tests are effective"
-        })
+        well_tested.append(
+            {"count": effective_count, "note": f"{effective_count} tests are effective"}
+        )
 
     # Category 5: Unknown (needs probing)
     unknown = []
@@ -264,15 +260,11 @@ def generate_work_items(analysis: dict):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Generate actionable coverage report"
-    )
+    parser = argparse.ArgumentParser(description="Generate actionable coverage report")
     parser.add_argument("--service", help="Analyze specific service")
     parser.add_argument("-v", "--verbose", action="store_true", help="Show details")
     parser.add_argument("--json", action="store_true", help="JSON output")
-    parser.add_argument(
-        "--work-items", action="store_true", help="Generate work items"
-    )
+    parser.add_argument("--work-items", action="store_true", help="Generate work items")
     parser.add_argument(
         "--with-probe",
         action="store_true",
@@ -284,15 +276,11 @@ def main():
         services = [args.service]
     else:
         # Get all services with gaps
-        result = run_command([
-            "uv", "run", "python", "scripts/compat_coverage.py", "--json"
-        ])
+        result = run_command(["uv", "run", "python", "scripts/compat_coverage.py", "--json"])
         if isinstance(result, list):
-            services = [
-                s["service"]
-                for s in result
-                if s.get("coverage_pct", 100) < 100
-            ][:10]  # Top 10 with gaps
+            services = [s["service"] for s in result if s.get("coverage_pct", 100) < 100][
+                :10
+            ]  # Top 10 with gaps
         else:
             print("Error: Could not get service list", file=sys.stderr)
             sys.exit(1)

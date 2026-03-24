@@ -47,17 +47,19 @@ def get_service_quality_data() -> list[dict]:
         # Get behavioral data
         behavioral = _get_behavioral_report(tests, str(test_file))
 
-        services.append({
-            "name": service_name,
-            "total_tests": total,
-            "effective_tests": ok_count,
-            "effective_pct": effective_pct,
-            "no_contact": no_contact,
-            "no_assertion": no_assert,
-            "weak_assertion": weak_assert,
-            "behavioral_coverage_pct": behavioral["overall_behavioral_coverage_pct"],
-            "pattern_coverage": behavioral["pattern_coverage"],
-        })
+        services.append(
+            {
+                "name": service_name,
+                "total_tests": total,
+                "effective_tests": ok_count,
+                "effective_pct": effective_pct,
+                "no_contact": no_contact,
+                "no_assertion": no_assert,
+                "weak_assertion": weak_assert,
+                "behavioral_coverage_pct": behavioral["overall_behavioral_coverage_pct"],
+                "pattern_coverage": behavioral["pattern_coverage"],
+            }
+        )
 
     return sorted(services, key=lambda s: s["effective_pct"])
 
@@ -112,17 +114,17 @@ def generate_html(services: list[dict], trends: list[dict], output_path: Path) -
             g = 255
         color = f"rgb({r}, {g}, 50)"
 
-        service_grid_html += f'''
+        service_grid_html += f"""
         <div class="service-card" style="background-color: {color}">
             <div class="service-name">{service["name"]}</div>
             <div class="service-score">{pct}%</div>
             <div class="service-tests">{service["total_tests"]} tests</div>
-        </div>'''
+        </div>"""
 
     # Generate issues list HTML
     issues_html = ""
     for service in services[:10]:  # Bottom 10
-        issues_html += f'''
+        issues_html += f"""
         <tr>
             <td>{service["name"]}</td>
             <td>{service["effective_pct"]}%</td>
@@ -130,10 +132,10 @@ def generate_html(services: list[dict], trends: list[dict], output_path: Path) -
             <td>{service["no_contact"]}</td>
             <td>{service["weak_assertion"]}</td>
             <td>{service["no_assertion"]}</td>
-        </tr>'''
+        </tr>"""
 
     # Generate the full HTML
-    html = f'''<!DOCTYPE html>
+    html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -384,44 +386,44 @@ def generate_html(services: list[dict], trends: list[dict], output_path: Path) -
             <div class="pattern-row">
                 <span class="pattern-label">CREATE</span>
                 <div class="pattern-bar-bg">
-                    <div class="pattern-bar" style="width: {pattern_pcts['CREATE']}%"></div>
+                    <div class="pattern-bar" style="width: {pattern_pcts["CREATE"]}%"></div>
                 </div>
-                <span class="pattern-value">{pattern_pcts['CREATE']}%</span>
+                <span class="pattern-value">{pattern_pcts["CREATE"]}%</span>
             </div>
             <div class="pattern-row">
                 <span class="pattern-label">RETRIEVE</span>
                 <div class="pattern-bar-bg">
-                    <div class="pattern-bar" style="width: {pattern_pcts['RETRIEVE']}%"></div>
+                    <div class="pattern-bar" style="width: {pattern_pcts["RETRIEVE"]}%"></div>
                 </div>
-                <span class="pattern-value">{pattern_pcts['RETRIEVE']}%</span>
+                <span class="pattern-value">{pattern_pcts["RETRIEVE"]}%</span>
             </div>
             <div class="pattern-row">
                 <span class="pattern-label">LIST</span>
                 <div class="pattern-bar-bg">
-                    <div class="pattern-bar" style="width: {pattern_pcts['LIST']}%"></div>
+                    <div class="pattern-bar" style="width: {pattern_pcts["LIST"]}%"></div>
                 </div>
-                <span class="pattern-value">{pattern_pcts['LIST']}%</span>
+                <span class="pattern-value">{pattern_pcts["LIST"]}%</span>
             </div>
             <div class="pattern-row">
                 <span class="pattern-label">UPDATE</span>
                 <div class="pattern-bar-bg">
-                    <div class="pattern-bar" style="width: {pattern_pcts['UPDATE']}%"></div>
+                    <div class="pattern-bar" style="width: {pattern_pcts["UPDATE"]}%"></div>
                 </div>
-                <span class="pattern-value">{pattern_pcts['UPDATE']}%</span>
+                <span class="pattern-value">{pattern_pcts["UPDATE"]}%</span>
             </div>
             <div class="pattern-row">
                 <span class="pattern-label">DELETE</span>
                 <div class="pattern-bar-bg">
-                    <div class="pattern-bar" style="width: {pattern_pcts['DELETE']}%"></div>
+                    <div class="pattern-bar" style="width: {pattern_pcts["DELETE"]}%"></div>
                 </div>
-                <span class="pattern-value">{pattern_pcts['DELETE']}%</span>
+                <span class="pattern-value">{pattern_pcts["DELETE"]}%</span>
             </div>
             <div class="pattern-row">
                 <span class="pattern-label">ERROR</span>
                 <div class="pattern-bar-bg">
-                    <div class="pattern-bar" style="width: {pattern_pcts['ERROR']}%"></div>
+                    <div class="pattern-bar" style="width: {pattern_pcts["ERROR"]}%"></div>
                 </div>
-                <span class="pattern-value">{pattern_pcts['ERROR']}%</span>
+                <span class="pattern-value">{pattern_pcts["ERROR"]}%</span>
             </div>
         </div>
     </div>
@@ -457,7 +459,7 @@ def generate_html(services: list[dict], trends: list[dict], output_path: Path) -
     </script>
 </body>
 </html>
-'''
+"""
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html)

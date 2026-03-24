@@ -39,9 +39,7 @@ __all__ = ["queue", "fifo_queue", "queue_with_messages"]
 
 
 @contextmanager
-def queue(
-    client: Any, name: str | None = None, **attributes: Any
-) -> Generator[str, None, None]:
+def queue(client: Any, name: str | None = None, **attributes: Any) -> Generator[str, None, None]:
     """Create an SQS queue with automatic cleanup.
 
     Args:
@@ -145,8 +143,6 @@ def queue_with_messages(
     with queue(client, name=name, **attributes) as queue_url:
         message_ids = []
         for i in range(count):
-            response = client.send_message(
-                QueueUrl=queue_url, MessageBody=f"test-message-{i}"
-            )
+            response = client.send_message(QueueUrl=queue_url, MessageBody=f"test-message-{i}")
             message_ids.append(response["MessageId"])
         yield queue_url, message_ids

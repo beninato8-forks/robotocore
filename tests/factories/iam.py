@@ -42,16 +42,12 @@ DEFAULT_TRUST_POLICY = {
 # Default policy document (allows nothing)
 DEFAULT_POLICY_DOCUMENT = {
     "Version": "2012-10-17",
-    "Statement": [
-        {"Effect": "Deny", "Action": "*", "Resource": "*"}
-    ],
+    "Statement": [{"Effect": "Deny", "Action": "*", "Resource": "*"}],
 }
 
 
 @contextmanager
-def user(
-    client: Any, name: str | None = None, path: str = "/"
-) -> Generator[str, None, None]:
+def user(client: Any, name: str | None = None, path: str = "/") -> Generator[str, None, None]:
     """Create an IAM user with automatic cleanup.
 
     Args:

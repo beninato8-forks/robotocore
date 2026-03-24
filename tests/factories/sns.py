@@ -96,9 +96,7 @@ def topic_with_subscriptions(
 
 
 @contextmanager
-def fifo_topic(
-    client: Any, name: str | None = None
-) -> Generator[str, None, None]:
+def fifo_topic(client: Any, name: str | None = None) -> Generator[str, None, None]:
     """Create a FIFO SNS topic with automatic cleanup.
 
     Args:

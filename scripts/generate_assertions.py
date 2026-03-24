@@ -67,45 +67,31 @@ def generate_assertions(service: str, operation: str, var_name: str = "response"
 
         if member_type == "string":
             # Non-empty string
-            assertions.append(
-                f'assert isinstance({var_name}["{member_name}"], str)'
-            )
+            assertions.append(f'assert isinstance({var_name}["{member_name}"], str)')
             assertions.append(f'assert len({var_name}["{member_name}"]) > 0')
 
             # ARN format validation
             if "arn" in member_name.lower():
-                assertions.append(
-                    f'assert {var_name}["{member_name}"].startswith("arn:aws:")'
-                )
+                assertions.append(f'assert {var_name}["{member_name}"].startswith("arn:aws:")')
 
             # URL format validation
             if "url" in member_name.lower():
-                assertions.append(
-                    f'assert {var_name}["{member_name}"].startswith("http")'
-                )
+                assertions.append(f'assert {var_name}["{member_name}"].startswith("http")')
 
         elif member_type == "integer" or member_type == "long":
-            assertions.append(
-                f'assert isinstance({var_name}["{member_name}"], int)'
-            )
+            assertions.append(f'assert isinstance({var_name}["{member_name}"], int)')
             # Non-negative for counts
             if any(x in member_name.lower() for x in ["count", "number", "size"]):
                 assertions.append(f'assert {var_name}["{member_name}"] >= 0')
 
         elif member_type == "boolean":
-            assertions.append(
-                f'assert isinstance({var_name}["{member_name}"], bool)'
-            )
+            assertions.append(f'assert isinstance({var_name}["{member_name}"], bool)')
 
         elif member_type == "list":
-            assertions.append(
-                f'assert isinstance({var_name}["{member_name}"], list)'
-            )
+            assertions.append(f'assert isinstance({var_name}["{member_name}"], list)')
 
         elif member_type == "structure":
-            assertions.append(
-                f'assert isinstance({var_name}["{member_name}"], dict)'
-            )
+            assertions.append(f'assert isinstance({var_name}["{member_name}"], dict)')
 
     return assertions
 

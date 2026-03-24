@@ -66,11 +66,39 @@ def _extract_client_variable_names(tree: ast.AST) -> set[str]:
     clients = set()
 
     # Common client variable names used in tests
-    common_names = {"client", "sqs", "sns", "s3", "iam", "ec2", "dynamodb", "lambda_client",
-                    "logs", "events", "kinesis", "firehose", "stepfunctions", "ssm",
-                    "secretsmanager", "kms", "cloudwatch", "cloudformation", "sts",
-                    "apigateway", "cognito", "ses", "route53", "acm", "ecs", "ecr",
-                    "batch", "scheduler", "xray", "rekognition", "appsync"}
+    common_names = {
+        "client",
+        "sqs",
+        "sns",
+        "s3",
+        "iam",
+        "ec2",
+        "dynamodb",
+        "lambda_client",
+        "logs",
+        "events",
+        "kinesis",
+        "firehose",
+        "stepfunctions",
+        "ssm",
+        "secretsmanager",
+        "kms",
+        "cloudwatch",
+        "cloudformation",
+        "sts",
+        "apigateway",
+        "cognito",
+        "ses",
+        "route53",
+        "acm",
+        "ecs",
+        "ecr",
+        "batch",
+        "scheduler",
+        "xray",
+        "rekognition",
+        "appsync",
+    }
 
     for node in ast.walk(tree):
         # Fixture parameters in test functions
@@ -198,8 +226,19 @@ def get_tested_operations(test_file: Path) -> set[str]:
                 method_name = node.func.attr
                 # Skip Python built-in methods and common non-AWS methods
                 if method_name.startswith("_") or method_name in {
-                    "get", "set", "items", "keys", "values", "update", "pop",
-                    "append", "extend", "remove", "clear", "copy", "close",
+                    "get",
+                    "set",
+                    "items",
+                    "keys",
+                    "values",
+                    "update",
+                    "pop",
+                    "append",
+                    "extend",
+                    "remove",
+                    "clear",
+                    "copy",
+                    "close",
                 }:
                     continue
                 # Convert snake_case to PascalCase

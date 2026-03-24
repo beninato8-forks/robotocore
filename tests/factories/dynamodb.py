@@ -145,8 +145,7 @@ def table_with_items(
     """
     if items is None:
         items = [
-            {"pk": {"S": f"item-{i}"}, "data": {"S": f"test-data-{i}"}}
-            for i in range(count or 5)
+            {"pk": {"S": f"item-{i}"}, "data": {"S": f"test-data-{i}"}} for i in range(count or 5)
         ]
 
     with table(client, name=name, **kwargs) as table_name:

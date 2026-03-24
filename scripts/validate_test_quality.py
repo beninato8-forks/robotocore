@@ -139,7 +139,10 @@ def _detect_behavioral_patterns(node: ast.FunctionDef) -> dict[str, bool]:
         if isinstance(child, ast.Try):
             for handler in child.handlers:
                 if handler.type is not None:
-                    if isinstance(handler.type, ast.Attribute) and handler.type.attr == "ClientError":
+                    if (
+                        isinstance(handler.type, ast.Attribute)
+                        and handler.type.attr == "ClientError"
+                    ):
                         patterns["ERROR"] = True
                     elif isinstance(handler.type, ast.Name) and handler.type.id == "ClientError":
                         patterns["ERROR"] = True
@@ -408,9 +411,7 @@ def _print_behavioral_report(all_tests: list[dict], single_file: str | None):
         score = test.get("behavioral_score", 0)
         total = test.get("behavioral_total", 6)
         pct = round(score / total * 100) if total else 0
-        pattern_str = "".join(
-            f"{'✅' if patterns.get(p) else '❌'}" for p in BEHAVIORAL_PATTERNS
-        )
+        pattern_str = "".join(f"{'✅' if patterns.get(p) else '❌'}" for p in BEHAVIORAL_PATTERNS)
         print(f"  {test['name']:<55s} {pattern_str} {pct:>3d}% ({score}/{total})")
     print()
 

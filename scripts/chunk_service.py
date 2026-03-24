@@ -107,11 +107,39 @@ def _extract_client_variable_names(tree: ast.AST) -> set[str]:
     """Find variable names that are likely boto3 clients."""
     clients = set()
     # Common client variable names
-    common_names = {"client", "sqs", "sns", "s3", "iam", "ec2", "dynamodb", "lambda_client",
-                    "logs", "events", "kinesis", "firehose", "stepfunctions", "ssm",
-                    "secretsmanager", "kms", "cloudwatch", "cloudformation", "sts",
-                    "apigateway", "cognito", "ses", "route53", "acm", "ecs", "ecr",
-                    "batch", "scheduler", "xray", "rekognition", "appsync"}
+    common_names = {
+        "client",
+        "sqs",
+        "sns",
+        "s3",
+        "iam",
+        "ec2",
+        "dynamodb",
+        "lambda_client",
+        "logs",
+        "events",
+        "kinesis",
+        "firehose",
+        "stepfunctions",
+        "ssm",
+        "secretsmanager",
+        "kms",
+        "cloudwatch",
+        "cloudformation",
+        "sts",
+        "apigateway",
+        "cognito",
+        "ses",
+        "route53",
+        "acm",
+        "ecs",
+        "ecr",
+        "batch",
+        "scheduler",
+        "xray",
+        "rekognition",
+        "appsync",
+    }
 
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef) and node.name.startswith("test_"):
@@ -168,8 +196,19 @@ def get_tested_operations(service_name: str) -> set[str]:
             if obj_name and obj_name in client_vars:
                 method = node.func.attr
                 if method.startswith("_") or method in {
-                    "get", "set", "items", "keys", "values", "update", "pop",
-                    "append", "extend", "remove", "clear", "copy", "close",
+                    "get",
+                    "set",
+                    "items",
+                    "keys",
+                    "values",
+                    "update",
+                    "pop",
+                    "append",
+                    "extend",
+                    "remove",
+                    "clear",
+                    "copy",
+                    "close",
                 }:
                     continue
                 pascal = "".join(w.capitalize() for w in method.split("_"))
