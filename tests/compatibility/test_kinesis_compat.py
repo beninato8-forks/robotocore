@@ -983,7 +983,8 @@ class TestKinesisAutoCoverage:
 
     def test_describe_account_settings(self, client):
         """DescribeAccountSettings returns a response."""
-        client.describe_account_settings()
+        resp = client.describe_account_settings()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
 
 
 class TestKinesisResourcePolicy:
@@ -1411,6 +1412,12 @@ class TestKinesisTagResourceAndStreamMode:
         """TagResource and UntagResource work on a stream ARN."""
         kinesis.tag_resource(ResourceARN=stream_arn, Tags={"Env": "test", "App": "myapp"})
         kinesis.untag_resource(ResourceARN=stream_arn, TagKeys=["App"])
+        # Verify: Env tag remains, App tag was removed
+        stream_name = stream_arn.split("/")[-1]
+        resp = kinesis.list_tags_for_stream(StreamName=stream_name)
+        tag_keys = [t["Key"] for t in resp["Tags"]]
+        assert "Env" in tag_keys
+        assert "App" not in tag_keys
 
     def test_update_stream_mode(self, kinesis, stream_arn):
         """UpdateStreamMode changes the stream mode."""

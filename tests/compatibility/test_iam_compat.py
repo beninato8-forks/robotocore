@@ -1342,7 +1342,8 @@ class TestIAMAccountPasswordPolicy:
 class TestIAMChangePassword:
     def test_change_password(self, iam):
         """ChangePassword."""
-        iam.change_password(OldPassword="oldpass", NewPassword="newpass123!")
+        resp = iam.change_password(OldPassword="oldpass", NewPassword="newpass123!")
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
 
 
 class TestIAMMFADevices:
@@ -2373,7 +2374,8 @@ class TestIamAutoCoverage:
 
     def test_disable_outbound_web_identity_federation(self, client):
         """DisableOutboundWebIdentityFederation returns a response."""
-        client.disable_outbound_web_identity_federation()
+        resp = client.disable_outbound_web_identity_federation()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
 
     def test_enable_organizations_root_credentials_management(self, client):
         """EnableOrganizationsRootCredentialsManagement returns a response."""
@@ -2387,11 +2389,13 @@ class TestIamAutoCoverage:
 
     def test_enable_outbound_web_identity_federation(self, client):
         """EnableOutboundWebIdentityFederation returns a response."""
-        client.enable_outbound_web_identity_federation()
+        resp = client.enable_outbound_web_identity_federation()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
 
     def test_get_outbound_web_identity_federation_info(self, client):
         """GetOutboundWebIdentityFederationInfo returns a response."""
-        client.get_outbound_web_identity_federation_info()
+        resp = client.get_outbound_web_identity_federation_info()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
 
     def test_list_delegation_requests(self, client):
         """ListDelegationRequests returns a response."""
