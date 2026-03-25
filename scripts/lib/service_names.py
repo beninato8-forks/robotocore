@@ -89,16 +89,6 @@ _TEST_STEM_OVERRIDES: dict[str, str] = {
     "dynamodbstreams": "dynamodbstreams",
 }
 
-# Test file stems that are NOT real services (integration tests, infra tests)
-_TEST_STEM_SKIP = {
-    "apigateway_lambda",
-    "cross_service",
-    "state_persistence",
-    "lambda_event_source",
-    "cfn_e2e",
-    "concurrent_requests",
-}
-
 
 @dataclass(frozen=True)
 class ServiceNames:
@@ -244,7 +234,6 @@ if __name__ == "__main__":
     print(f"Resolved {len(services)} services:\n")
     print(f"{'Registry':<35} {'Botocore':<30} {'Provider':<18} {'Moto':<25} {'Test'}")
     print("-" * 140)
-    missing_botocore = 0
     missing_moto = 0
     missing_test = 0
     for name, sn in sorted(services.items()):

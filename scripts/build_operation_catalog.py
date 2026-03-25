@@ -632,6 +632,7 @@ def build_catalog(
                         for r in json.loads(cache_file.read_text()).get("operations", [])
                     }
                 except Exception:
+                    # Malformed cache file — skip and treat as uncached
                     pass
 
         for op in botocore_ops:
