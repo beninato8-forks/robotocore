@@ -1,11 +1,49 @@
 """Tests for the Moto bridge dispatch layer."""
 
+import re
+from collections.abc import AsyncIterator
+
 import pytest
+from starlette.requests import Request
+from werkzeug.wrappers import Request as WerkzeugRequest
 
 from robotocore.providers.moto_bridge import (
+    _build_werkzeug_request,
     _get_dispatcher,
     _get_moto_routing_table,
 )
+
+
+def _make_starlette_request(
+    path: str,
+    *,
+    method: str = "PUT",
+    headers: dict[str, str] | None = None,
+    query_string: bytes = b"",
+) -> Request:
+    async def receive() -> AsyncIterator[dict]:
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    raw_headers = [
+        (key.lower().encode("latin-1"), value.encode("latin-1"))
+        for key, value in (headers or {}).items()
+    ]
+    if not any(key == b"host" for key, _ in raw_headers):
+        raw_headers.append((b"host", b"localhost:4566"))
+    scope = {
+        "type": "http",
+        "http_version": "1.1",
+        "scheme": "http",
+        "method": method,
+        "path": path,
+        "raw_path": path.encode("latin-1"),
+        "query_string": query_string,
+        "headers": raw_headers,
+        "server": ("localhost", 4566),
+        "client": ("127.0.0.1", 12345),
+        "root_path": "",
+    }
+    return Request(scope, receive)
 
 
 class TestMotoRoutingTable:
@@ -50,6 +88,36 @@ class TestGetDispatcher:
     def test_s3_key_path(self):
         dispatch = _get_dispatcher("s3", "/my-bucket/my-key.txt")
         assert callable(dispatch)
+
+
+class TestBuildWerkzeugRequest:
+    def test_s3_form_urlencoded_request_preserves_raw_body(self):
+        body = b"\x00abc\xffdef"
+        request = _make_starlette_request(
+            "/bucket/key",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+        werkzeug_request = _build_werkzeug_request(request, body, service_name="s3")
+
+        assert isinstance(werkzeug_request, WerkzeugRequest)
+        assert werkzeug_request.body == body
+        with pytest.raises(AttributeError):
+            _ = werkzeug_request.form
+
+    def test_non_s3_form_urlencoded_request_uses_default_werkzeug_parsing(self):
+        body = b"Action=GetCallerIdentity&Version=2011-06-15"
+        request = _make_starlette_request(
+            "/",
+            method="POST",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+        werkzeug_request = _build_werkzeug_request(request, body, service_name="sts")
+
+        assert isinstance(werkzeug_request, WerkzeugRequest)
+        assert werkzeug_request.data == b""
+        assert werkzeug_request.form["Action"] == "GetCallerIdentity"
 
 
 class TestForwardToMoto:
@@ -111,6 +179,73 @@ class TestForwardToMoto:
         )
         assert response.status_code == 200
         assert response.content == b"hello world"
+
+    def test_s3_put_object_preserves_form_urlencoded_raw_body(self, client):
+        client.put("/test-form-bucket", headers=self._auth_header("s3"))
+
+        payload = b"\x00abc\xffdef"
+        response = client.put(
+            "/test-form-bucket/raw.bin",
+            content=payload,
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                **self._auth_header("s3"),
+            },
+        )
+        assert response.status_code == 200
+
+        response = client.get(
+            "/test-form-bucket/raw.bin",
+            headers=self._auth_header("s3"),
+        )
+        assert response.status_code == 200
+        assert response.content == payload
+
+    def test_presigned_s3_upload_part_preserves_form_urlencoded_raw_body(self, client):
+        bucket = "test-presigned-mpu-bucket"
+        key = "raw.bin"
+        payload = b"\x00multipart\xffpart"
+
+        client.put(f"/{bucket}", headers=self._auth_header("s3"))
+        response = client.post(f"/{bucket}/{key}?uploads", headers=self._auth_header("s3"))
+        assert response.status_code == 200
+
+        upload_id_match = re.search(r"<UploadId>([^<]+)</UploadId>", response.text)
+        assert upload_id_match is not None
+        upload_id = upload_id_match.group(1)
+
+        presigned_query = (
+            "partNumber=1"
+            f"&uploadId={upload_id}"
+            "&X-Amz-Algorithm=AWS4-HMAC-SHA256"
+            "&X-Amz-Credential=testing/20260305/us-east-1/s3/aws4_request"
+            "&X-Amz-Date=20260305T000000Z"
+            "&X-Amz-Expires=3600"
+            "&X-Amz-SignedHeaders=host"
+            "&X-Amz-Signature=abc123"
+        )
+        response = client.put(
+            f"/{bucket}/{key}?{presigned_query}",
+            content=payload,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        assert response.status_code == 200
+        etag = response.headers["etag"]
+
+        complete_body = (
+            f"<CompleteMultipartUpload><Part><PartNumber>1</PartNumber>"
+            f"<ETag>{etag}</ETag></Part></CompleteMultipartUpload>"
+        ).encode()
+        response = client.post(
+            f"/{bucket}/{key}?uploadId={upload_id}",
+            content=complete_body,
+            headers=self._auth_header("s3"),
+        )
+        assert response.status_code == 200
+
+        response = client.get(f"/{bucket}/{key}", headers=self._auth_header("s3"))
+        assert response.status_code == 200
+        assert response.content == payload
 
     def test_sqs_create_queue(self, client):
         response = client.post(

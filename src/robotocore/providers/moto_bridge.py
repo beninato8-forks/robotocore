@@ -27,6 +27,29 @@ os.environ.setdefault("MOTO_ALLOW_NONEXISTENT_REGION", "true")
 DEFAULT_ACCOUNT_ID = "123456789012"
 
 
+class werkzeug_raw_body_request(WerkzeugRequest):
+    """Werkzeug request that preserves a raw body for Moto.
+
+    Moto's BaseResponse.setup_class treats Werkzeug requests with
+    ``application/x-www-form-urlencoded`` as parsed form submissions, which
+    makes ``request.data`` empty and can corrupt S3 raw uploads. This wrapper
+    exposes the original bytes via ``body`` and hides form/files access so Moto
+    keeps the upload payload opaque.
+    """
+
+    def __init__(self, environ: dict, body: bytes):
+        super().__init__(environ)
+        self.body = body
+
+    @property
+    def form(self):  # type: ignore[override]
+        raise AttributeError("form parsing disabled for raw-body request")
+
+    @property
+    def files(self):  # type: ignore[override]
+        raise AttributeError("file parsing disabled for raw-body request")
+
+
 def _error_response(
     service_name: str,
     error_code: str,
@@ -126,7 +149,10 @@ def _get_dispatcher(service: str, path: str):
 
 
 def _build_werkzeug_request(
-    request: Request, body: bytes, account_id: str = DEFAULT_ACCOUNT_ID
+    request: Request,
+    body: bytes,
+    account_id: str = DEFAULT_ACCOUNT_ID,
+    service_name: str | None = None,
 ) -> WerkzeugRequest:
     """Convert a Starlette Request to a Werkzeug Request for Moto."""
     # Use raw_path from ASGI scope to preserve percent-encoding.  Starlette's
@@ -158,6 +184,9 @@ def _build_werkzeug_request(
     # Moto handlers (e.g. S3 _bucket_response_put) require it to be present.
     if "Content-Length" in request.headers and "CONTENT_LENGTH" not in env:
         env["CONTENT_LENGTH"] = request.headers["Content-Length"]
+    content_type = request.headers.get("content-type", "")
+    if service_name == "s3" and "x-www-form-urlencoded" in content_type:
+        return werkzeug_raw_body_request(env, body)
     return WerkzeugRequest(env)
 
 
@@ -186,7 +215,12 @@ async def forward_to_moto(
             501,
         )
 
-    werkzeug_request = _build_werkzeug_request(request, body, account_id=account_id)
+    werkzeug_request = _build_werkzeug_request(
+        request,
+        body,
+        account_id=account_id,
+        service_name=service_name,
+    )
 
     # Build the full URL as Moto expects
     full_url = str(request.url)
@@ -296,7 +330,12 @@ async def forward_to_moto_with_body(
             501,
         )
 
-    werkzeug_request = _build_werkzeug_request(request, body, account_id=account_id)
+    werkzeug_request = _build_werkzeug_request(
+        request,
+        body,
+        account_id=account_id,
+        service_name=service_name,
+    )
     full_url = str(request.url)
 
     try:

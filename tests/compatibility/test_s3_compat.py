@@ -643,6 +643,61 @@ class TestS3PresignedUrls:
         obj = s3.get_object(Bucket=bucket, Key="presigned-upload.txt")
         assert obj["Body"].read() == b"uploaded via presigned"
 
+    def test_presigned_put_url_with_form_urlencoded_content_type(self, s3, bucket):
+        """Presigned PUT should preserve raw bytes regardless of form content type."""
+        payload = b"\x00uploaded\xffvia-form"
+        url = s3.generate_presigned_url(
+            "put_object",
+            Params={"Bucket": bucket, "Key": "presigned-form-upload.txt"},
+            ExpiresIn=3600,
+        )
+
+        req = URLRequest(url, data=payload, method="PUT")
+        req.add_header("Content-Type", "application/x-www-form-urlencoded")
+        resp = urlopen(req)
+        assert resp.status == 200
+
+        obj = s3.get_object(Bucket=bucket, Key="presigned-form-upload.txt")
+        assert obj["Body"].read() == payload
+
+    def test_presigned_upload_part_with_form_urlencoded_content_type(self, s3, bucket):
+        """Presigned UploadPart should treat form content type as opaque bytes."""
+        key = "presigned-form-multipart.bin"
+        payload = b"\x00multipart\xffform-part"
+        response = s3.create_multipart_upload(Bucket=bucket, Key=key)
+        upload_id = response["UploadId"]
+
+        try:
+            url = s3.generate_presigned_url(
+                "upload_part",
+                Params={
+                    "Bucket": bucket,
+                    "Key": key,
+                    "UploadId": upload_id,
+                    "PartNumber": 1,
+                },
+                ExpiresIn=3600,
+            )
+
+            req = URLRequest(url, data=payload, method="PUT")
+            req.add_header("Content-Type", "application/x-www-form-urlencoded")
+            resp = urlopen(req)
+            assert resp.status == 200
+            etag = resp.headers["ETag"]
+
+            s3.complete_multipart_upload(
+                Bucket=bucket,
+                Key=key,
+                UploadId=upload_id,
+                MultipartUpload={"Parts": [{"PartNumber": 1, "ETag": etag}]},
+            )
+
+            obj = s3.get_object(Bucket=bucket, Key=key)
+            assert obj["Body"].read() == payload
+        except Exception:
+            s3.abort_multipart_upload(Bucket=bucket, Key=key, UploadId=upload_id)
+            raise
+
     def test_presigned_head_url(self, s3, bucket):
         """Test generating and using a presigned HEAD URL."""
         s3.put_object(Bucket=bucket, Key="presigned-head.txt", Body=b"check me")
