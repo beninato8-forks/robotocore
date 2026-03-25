@@ -27,7 +27,7 @@ os.environ.setdefault("MOTO_ALLOW_NONEXISTENT_REGION", "true")
 DEFAULT_ACCOUNT_ID = "123456789012"
 
 
-class werkzeug_raw_body_request(WerkzeugRequest):
+class WerkzeugRawBodyRequest(WerkzeugRequest):
     """Werkzeug request that preserves a raw body for Moto.
 
     Moto's BaseResponse.setup_class treats Werkzeug requests with
@@ -186,7 +186,7 @@ def _build_werkzeug_request(
         env["CONTENT_LENGTH"] = request.headers["Content-Length"]
     content_type = request.headers.get("content-type", "")
     if service_name == "s3" and "x-www-form-urlencoded" in content_type:
-        return werkzeug_raw_body_request(env, body)
+        return WerkzeugRawBodyRequest(env, body)
     return WerkzeugRequest(env)
 
 
