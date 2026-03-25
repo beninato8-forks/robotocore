@@ -1718,7 +1718,8 @@ class TestCloudformationAutoCoverage:
 
     def test_activate_organizations_access(self, client):
         """ActivateOrganizationsAccess returns a response."""
-        client.activate_organizations_access()
+        resp = client.activate_organizations_access()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
 
     def test_activate_type(self, client):
         """ActivateType returns a response."""
@@ -1727,7 +1728,8 @@ class TestCloudformationAutoCoverage:
 
     def test_deactivate_organizations_access(self, client):
         """DeactivateOrganizationsAccess returns a response."""
-        client.deactivate_organizations_access()
+        resp = client.deactivate_organizations_access()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
 
     def test_deactivate_type(self, client):
         """DeactivateType returns a response."""
@@ -1739,15 +1741,18 @@ class TestCloudformationAutoCoverage:
 
     def test_describe_events(self, client):
         """DescribeEvents returns a response."""
-        client.describe_events()
+        resp = client.describe_events()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
 
     def test_get_hook_result(self, client):
         """GetHookResult returns a response."""
-        client.get_hook_result()
+        resp = client.get_hook_result()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
 
     def test_list_hook_results(self, client):
         """ListHookResults returns a response."""
-        client.list_hook_results()
+        resp = client.list_hook_results()
+        assert "HookResults" in resp
 
     def test_list_stack_refactors(self, client):
         """ListStackRefactors returns a response."""
@@ -1766,7 +1771,8 @@ class TestCloudformationAutoCoverage:
 
     def test_set_type_default_version(self, client):
         """SetTypeDefaultVersion returns a response."""
-        client.set_type_default_version()
+        resp = client.set_type_default_version()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
 
     def test_start_resource_scan(self, client):
         """StartResourceScan returns a response."""

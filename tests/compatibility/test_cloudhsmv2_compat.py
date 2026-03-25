@@ -66,7 +66,8 @@ class TestCloudhsmv2AutoCoverage:
 
     def test_put_resource_policy(self, client):
         """PutResourcePolicy returns a response."""
-        client.put_resource_policy()
+        resp = client.put_resource_policy()
+        assert resp["ResponseMetadata"]["HTTPStatusCode"] == 200
 
     def test_list_tags(self, client):
         """ListTags returns tags for a cluster resource."""
