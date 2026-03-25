@@ -59,7 +59,9 @@ jobs:
       - name: bandit
         run: uv run bandit -r src/robotocore/ -ll -c pyproject.toml -q
       - name: dependency audit
-        run: uvx pip-audit
+        # CVE-2026-4539 affects pygments 2.19.2 (transitive via rich/pytest).
+        # No fix version exists yet; ignore until pygments releases a patch.
+        run: uvx pip-audit --ignore-vuln CVE-2026-4539
 
   test-quality:
     runs-on: ubuntu-latest
