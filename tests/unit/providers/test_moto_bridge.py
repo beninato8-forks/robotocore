@@ -101,9 +101,17 @@ class TestBuildWerkzeugRequest:
         werkzeug_request = _build_werkzeug_request(request, body, service_name="s3")
 
         assert isinstance(werkzeug_request, WerkzeugRequest)
+        # Moto's Boto path: hasattr(request, "body") → True
         assert werkzeug_request.body == body
+        # Moto's Flask fallback path: request.data also returns raw bytes
+        assert werkzeug_request.data == body
+        assert werkzeug_request.get_data() == body
+        # form/files raise AttributeError so hasattr() returns False,
+        # preventing Moto from overwriting body with form-field contents.
         with pytest.raises(AttributeError):
             _ = werkzeug_request.form
+        with pytest.raises(AttributeError):
+            _ = werkzeug_request.files
 
     def test_non_s3_form_urlencoded_request_uses_default_werkzeug_parsing(self):
         body = b"Action=GetCallerIdentity&Version=2011-06-15"

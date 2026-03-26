@@ -30,11 +30,22 @@ DEFAULT_ACCOUNT_ID = "123456789012"
 class WerkzeugRawBodyRequest(WerkzeugRequest):
     """Werkzeug request that preserves a raw body for Moto.
 
-    Moto's BaseResponse.setup_class treats Werkzeug requests with
-    ``application/x-www-form-urlencoded`` as parsed form submissions, which
-    makes ``request.data`` empty and can corrupt S3 raw uploads. This wrapper
-    exposes the original bytes via ``body`` and hides form/files access so Moto
-    keeps the upload payload opaque.
+    Moto's BaseResponse.setup_class reads the body via two paths:
+      1. ``if hasattr(request, "body"): self.body = request.body``  (Boto path)
+      2. ``else: self.body = request.data``                         (Flask path)
+
+    For ``application/x-www-form-urlencoded``, Werkzeug eagerly parses the
+    request stream into ``form`` and ``files``, leaving both ``data`` and any
+    synthetic ``body`` attribute empty. That corrupts raw S3 uploads where the
+    Content-Type header describes the *object* metadata, not the wire encoding.
+
+    This wrapper fixes both body-access paths:
+    - Sets ``self.body`` directly so Moto takes the Boto path.
+    - Overrides ``data`` / ``get_data()`` to return the same raw bytes, so any
+      code that falls through to the Flask path still gets the real payload.
+    - Raises ``AttributeError`` from ``form`` / ``files`` properties so that
+      ``hasattr(request, "form")`` returns False, preventing Moto from
+      overwriting ``self.body`` with form-field contents.
     """
 
     def __init__(self, environ: dict, body: bytes):
@@ -42,11 +53,21 @@ class WerkzeugRawBodyRequest(WerkzeugRequest):
         self.body = body
 
     @property
+    def data(self) -> bytes:  # type: ignore[override]
+        return self.body
+
+    def get_data(self, *args: object, **kwargs: object) -> bytes:  # type: ignore[override]
+        return self.body
+
+    @property
     def form(self):  # type: ignore[override]
+        # Raising AttributeError causes hasattr(request, "form") == False,
+        # which makes Moto skip the form-body extraction logic in setup_class.
         raise AttributeError("form parsing disabled for raw-body request")
 
     @property
     def files(self):  # type: ignore[override]
+        # Same as form: prevents Moto from overwriting self.body with file data.
         raise AttributeError("file parsing disabled for raw-body request")
 
 
