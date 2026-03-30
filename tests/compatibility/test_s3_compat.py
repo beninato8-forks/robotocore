@@ -4,6 +4,7 @@ import json
 import os
 import time
 import uuid
+from urllib.error import HTTPError
 from urllib.request import Request as URLRequest
 from urllib.request import urlopen
 
@@ -730,6 +731,70 @@ class TestS3PresignedUrls:
         # Verify object is gone
         response = s3.list_objects_v2(Bucket=bucket, Prefix="presigned-delete.txt")
         assert response.get("Contents") is None or len(response["Contents"]) == 0
+
+
+class TestS3PresignedUrlExpiration:
+    """Verify expired presigned URLs are rejected with 403."""
+
+    def test_expired_sigv4_presigned_get_returns_403(self, s3, bucket):
+        """An expired SigV4 presigned GET URL must return 403 AccessDenied."""
+        s3.put_object(Bucket=bucket, Key="expire-test.txt", Body=b"should not read")
+
+        url = s3.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket, "Key": "expire-test.txt"},
+            ExpiresIn=1,
+        )
+        time.sleep(2)
+
+        req = URLRequest(url, method="GET")
+        with pytest.raises(HTTPError) as exc_info:
+            urlopen(req)
+        assert exc_info.value.code == 403
+        body = exc_info.value.read()
+        assert b"AccessDenied" in body
+        assert b"Request has expired" in body
+
+    def test_expired_sigv2_presigned_get_returns_403(self, s3, bucket):
+        """An expired SigV2 presigned GET URL must return 403 AccessDenied."""
+        from botocore.config import Config
+
+        s3v2 = boto3.client(
+            "s3",
+            endpoint_url=ENDPOINT_URL,
+            region_name="us-east-1",
+            aws_access_key_id="testing",
+            aws_secret_access_key="testing",
+            config=Config(signature_version="s3"),
+        )
+        s3.put_object(Bucket=bucket, Key="expire-v2.txt", Body=b"should not read")
+
+        url = s3v2.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket, "Key": "expire-v2.txt"},
+            ExpiresIn=1,
+        )
+        time.sleep(2)
+
+        req = URLRequest(url, method="GET")
+        with pytest.raises(HTTPError) as exc_info:
+            urlopen(req)
+        assert exc_info.value.code == 403
+
+    def test_valid_presigned_url_still_works(self, s3, bucket):
+        """Non-expired presigned URL should still return the object."""
+        s3.put_object(Bucket=bucket, Key="valid-presign.txt", Body=b"still valid")
+
+        url = s3.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket, "Key": "valid-presign.txt"},
+            ExpiresIn=3600,
+        )
+
+        req = URLRequest(url, method="GET")
+        resp = urlopen(req)
+        assert resp.status == 200
+        assert resp.read() == b"still valid"
 
 
 class TestS3MultipartExtended:

@@ -1290,8 +1290,8 @@ class TestPresignedUrlProvider:
         mock_forward.return_value = Response(content=b"object-data", status_code=200)
         qs = (
             b"X-Amz-Algorithm=AWS4-HMAC-SHA256"
-            b"&X-Amz-Credential=AKID/20260101/us-east-1/s3/aws4_request"
-            b"&X-Amz-Date=20260101T000000Z"
+            b"&X-Amz-Credential=AKID/20990101/us-east-1/s3/aws4_request"
+            b"&X-Amz-Date=20990101T000000Z"
             b"&X-Amz-Expires=3600"
             b"&X-Amz-SignedHeaders=host"
             b"&X-Amz-Signature=abc123"
@@ -1302,13 +1302,54 @@ class TestPresignedUrlProvider:
         # Moto should have been called with stripped params
         mock_forward.assert_called_once()
 
+    async def test_sigv4_expired_returns_403(self):
+        """Expired SigV4 presigned URL should return 403 AccessDenied."""
+        qs = (
+            b"X-Amz-Algorithm=AWS4-HMAC-SHA256"
+            b"&X-Amz-Credential=AKID/20260101/us-east-1/s3/aws4_request"
+            b"&X-Amz-Date=20200101T000000Z"
+            b"&X-Amz-Expires=1"
+            b"&X-Amz-SignedHeaders=host"
+            b"&X-Amz-Signature=abc123"
+        )
+        req = _make_request("GET", "/mybucket/mykey", query_string=qs)
+        resp = await handle_s3_request(req, "us-east-1", "123456789012")
+        assert resp.status_code == 403
+        assert b"AccessDenied" in resp.body
+        assert b"Request has expired" in resp.body
+
+    async def test_sigv2_expired_returns_403(self):
+        """Expired SigV2 presigned URL should return 403 AccessDenied."""
+        qs = b"AWSAccessKeyId=AKID&Signature=sig&Expires=1000000000"
+        req = _make_request("GET", "/mybucket/mykey", query_string=qs)
+        resp = await handle_s3_request(req, "us-east-1", "123456789012")
+        assert resp.status_code == 403
+        assert b"AccessDenied" in resp.body
+
+    @patch("robotocore.services.s3.provider.forward_to_moto")
+    async def test_sigv4_not_expired_passes_through(self, mock_forward):
+        """Non-expired SigV4 presigned URL should be forwarded to Moto."""
+        mock_forward.return_value = Response(content=b"ok", status_code=200)
+        qs = (
+            b"X-Amz-Algorithm=AWS4-HMAC-SHA256"
+            b"&X-Amz-Credential=AKID/20260101/us-east-1/s3/aws4_request"
+            b"&X-Amz-Date=20990101T000000Z"
+            b"&X-Amz-Expires=3600"
+            b"&X-Amz-SignedHeaders=host"
+            b"&X-Amz-Signature=abc123"
+        )
+        req = _make_request("GET", "/mybucket/mykey", query_string=qs)
+        resp = await handle_s3_request(req, "us-east-1", "123456789012")
+        assert resp.status_code == 200
+        mock_forward.assert_called_once()
+
     @patch("robotocore.services.s3.provider.forward_to_moto")
     async def test_presigned_get_applies_response_header_overrides(self, mock_forward):
         mock_forward.return_value = Response(content=b"object-data", status_code=200)
         qs = (
             b"X-Amz-Algorithm=AWS4-HMAC-SHA256"
-            b"&X-Amz-Credential=AKID/20260101/us-east-1/s3/aws4_request"
-            b"&X-Amz-Date=20260101T000000Z"
+            b"&X-Amz-Credential=AKID/20990101/us-east-1/s3/aws4_request"
+            b"&X-Amz-Date=20990101T000000Z"
             b"&X-Amz-Expires=3600"
             b"&X-Amz-SignedHeaders=host"
             b"&X-Amz-Signature=abc123"

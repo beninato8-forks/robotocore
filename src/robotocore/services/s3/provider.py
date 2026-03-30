@@ -1,9 +1,11 @@
 """Enhanced S3 provider — wraps Moto's S3 with event notifications, CORS,
 versioning, lifecycle, object lock, multipart support, and presigned URLs."""
 
+import calendar
 import logging
 import re
 import threading
+import time
 import xml.etree.ElementTree as ET
 from urllib.parse import urlencode
 
@@ -98,6 +100,49 @@ S3_NS = "http://s3.amazonaws.com/doc/2006-03-01/"
 def _is_presigned_url(query_params: QueryParams) -> bool:
     """Check if the request is a presigned URL request."""
     return "X-Amz-Signature" in query_params or "Signature" in query_params
+
+
+def _check_presigned_expiration(query_params: QueryParams) -> Response | None:
+    """Return a 403 response if the presigned URL has expired, else None."""
+    if "X-Amz-Signature" in query_params:
+        # SigV4: expiration = X-Amz-Date + X-Amz-Expires seconds
+        date_str = query_params.get("X-Amz-Date", "")
+        expires_str = query_params.get("X-Amz-Expires", "")
+        if date_str and expires_str:
+            try:
+                sign_time = calendar.timegm(time.strptime(date_str, "%Y%m%dT%H%M%SZ"))
+                expires_seconds = int(expires_str)
+                if time.time() > sign_time + expires_seconds:
+                    return _expired_presigned_response()
+            except (ValueError, OverflowError):
+                pass  # malformed date/expires — let Moto reject it
+    elif "Signature" in query_params:
+        # SigV2: Expires is a unix timestamp
+        expires_str = query_params.get("Expires", "")
+        if expires_str:
+            try:
+                if time.time() > int(expires_str):
+                    return _expired_presigned_response()
+            except (ValueError, OverflowError):
+                pass  # malformed Expires — let Moto reject it
+    return None
+
+
+def _expired_presigned_response() -> Response:
+    """Return an S3-style AccessDenied XML response for expired presigned URLs."""
+    body = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        "<Error>"
+        "<Code>AccessDenied</Code>"
+        "<Message>Request has expired</Message>"
+        "<RequestId>00000000-0000-0000-0000-000000000000</RequestId>"
+        "</Error>"
+    )
+    return Response(
+        content=body,
+        status_code=403,
+        media_type="application/xml",
+    )
 
 
 def _strip_presigned_params(request: Request, body: bytes | None = None) -> Request:
@@ -605,8 +650,11 @@ async def handle_s3_request(request: Request, region: str, account_id: str) -> R
     if path.endswith("/WriteGetObjectResponse") and method == "POST":
         return Response(status_code=200)
 
-    # Handle presigned URL requests by stripping signature params
+    # Handle presigned URL requests: check expiration, then strip signature params
     if _is_presigned_url(request.query_params):
+        expired = _check_presigned_expiration(request.query_params)
+        if expired is not None:
+            return expired
         body = await request.body()
         request = _strip_presigned_params(request, body)
 
